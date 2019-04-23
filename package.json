@@ -1,0 +1,15 @@
+{
+  "name": "genGen",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "Marek Pakes",
+  "license": "ISC",
+  "dependencies": {
+    "moment": "^2.24.0",
+    "node-random-name": "^1.0.1"
+  }
+}
