@@ -130,13 +130,41 @@ CREATE INDEX "PMOT" ON  "Person" ("mother");
 
 CREATE INDEX "PFAT" ON  "Person" ("father");
 
+CREATE TABLE "CelebrantName" (
+  "celebrant" int,
+  "name" int
+);
+
+CREATE INDEX "CNAME" ON  "CelebrantName" ("celebrant", "name");
+
 CREATE TABLE "User" (
   "_id_user" int,
   "name" varchar(30),
   PRIMARY KEY ("_id_user")
 );
 
-CREATE TABLE "Funeral director" (
+CREATE TABLE "Celebrant" (
+  "_id_celebrant" int,
+  "surname" varchar(30),
+  "title_occup" varchar(30),
+  PRIMARY KEY ("_id_celebrant")
+);
+
+CREATE TABLE "DirectorName" (
+  "director" int,
+  "name" int
+);
+
+CREATE INDEX "DNAME" ON  "DirectorName" ("director", "name");
+
+CREATE TABLE "OfficiantName" (
+  "name" int,
+  "officiant" int
+);
+
+CREATE INDEX "ONAME" ON  "OfficiantName" ("name", "officiant");
+
+CREATE TABLE "Director" (
   "_id_director" int,
   "surname" varchar(30),
   "title" varchar(30),
@@ -157,31 +185,3 @@ CREATE TABLE "PersonName" (
 );
 
 CREATE INDEX "PNAME" ON  "PersonName" ("name", "person");
-
-CREATE TABLE "OfficiantName" (
-  "name" int,
-  "officiant" int
-);
-
-CREATE INDEX "ONAME" ON  "OfficiantName" ("name", "officiant");
-
-CREATE TABLE "DirectorName" (
-  "director" int,
-  "name" int
-);
-
-CREATE INDEX "DNAME" ON  "DirectorName" ("director", "name");
-
-CREATE TABLE "CelebrantName" (
-  "celebrant" int,
-  "name" int
-);
-
-CREATE INDEX "CNAME" ON  "CelebrantName" ("celebrant", "name");
-
-CREATE TABLE "Funeral celebrant" (
-  "_id_celebrant" int,
-  "surname" varchar(30),
-  "title_occup" varchar(30),
-  PRIMARY KEY ("_id_celebrant")
-);
