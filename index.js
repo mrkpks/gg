@@ -29,15 +29,13 @@ const deathsCount = Math.ceil((registersCount / 10) * 7); // TODO check
 const marriagesCount = Math.floor((registersCount / 10) * 3); // TODO check
 const villagesCount = Math.min(VILLAGES.length, 15); // TODO 15->arg?
 
-const personsCount = 100; // TODO arg?
+const personsCount = 20; // TODO arg?
 const namesCount = Math.min(NAMES_ALL.length, Math.floor(personsCount / 3)); // TODO check
 const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 15); // TODO 15->arg?;
 
 const directorsCount = 3;
 const celebrantsCount = 3;
 const officiantsCount = 3;
-
-const witnessesCount = Math.min(marriagesCount * 4, personsCount); // TODO check
 
 faker.locale = 'cz';
 
@@ -70,7 +68,7 @@ for (let i = 0; i < usersCount; i++) {
     name: faker.fake("{{name.firstName}} {{name.lastName}}"),
   };
 
-  // sqlInsert('User', User);
+  sqlInsert('User', User);
 }
 
 console.log('--------------------------Register--------------------------');
@@ -89,7 +87,7 @@ for (let i = 0; i < archivesCount; i++) {
 
       registers.push(Register);
 
-      // sqlInsert('Register', Register);
+      sqlInsert('Register', Register);
     }
   }
 }
@@ -102,7 +100,7 @@ for (let i = 0; i < namesCount; i++) {
     name: NAMES_ALL[i],
   };
 
-  // sqlInsert('Name', Name);
+  sqlInsert('Name', Name);
 }
 
 console.log('--------------------------Occupation--------------------------');
@@ -113,7 +111,7 @@ for (let i = 0; i < Math.min(occupationsCount, PERSON_OCCUPATIONS.length); i++) 
     name: PERSON_OCCUPATIONS.map(occ => occ).sort(() => Math.random() - 0.5)[i],
   };
 
-  // sqlInsert('Occupation', Occupation);
+  sqlInsert('Occupation', Occupation);
 }
 
 console.log('--------------------------Director--------------------------');
@@ -129,7 +127,7 @@ for (let i = 0; i < directorsCount; i++) {
     title: DIRECTOR_TITLES[directorTitleIndices.next().value],
   };
 
-  // sqlInsert('Director', Director);
+  sqlInsert('Director', Director);
 }
 
 console.log('--------------------------DirectorName--------------------------');
@@ -142,7 +140,7 @@ for (let i = 0; i < directorsCount; i++) {
     name: directorNameIndices.next().value,
   };
 
-  // sqlInsert('DirectorName', DirectorName);
+  sqlInsert('DirectorName', DirectorName);
 }
 
 console.log('--------------------------Celebrant--------------------------');
@@ -154,10 +152,10 @@ for (let i = 0; i < celebrantsCount; i++) {
   let Celebrant = {
     _id_celebrant: i,
     surname: celebrantSurnames[i],
-    title: CELEBRANT_TITLES[celebrantTitleIndices.next().value],
+    title_occup: CELEBRANT_TITLES[celebrantTitleIndices.next().value],
   };
 
-  // sqlInsert('Celebrant', Celebrant);
+  sqlInsert('Celebrant', Celebrant);
 }
 
 console.log('--------------------------CelebrantName--------------------------');
@@ -170,7 +168,7 @@ for (let i = 0; i < celebrantsCount; i++) {
     name: celebrantNameIndices.next().value,
   };
 
-  // sqlInsert('CelebrantName', CelebrantName);
+  sqlInsert('CelebrantName', CelebrantName);
 }
 
 console.log('--------------------------Officiant--------------------------');
@@ -185,7 +183,7 @@ for (let i = 0; i < officiantsCount; i++) {
     title: OFFICIANT_TITLES[officiantTitleIndices.next().value],
   };
 
-  // sqlInsert('Officiant', Officiant);
+  sqlInsert('Officiant', Officiant);
 }
 
 console.log('--------------------------OfficiantName--------------------------');
@@ -198,7 +196,7 @@ for (let i = 0; i < officiantsCount; i++) {
     name: officiantNameIndices.next().value,
   };
 
-  // sqlInsert('OfficiantName', OfficiantName);
+  sqlInsert('OfficiantName', OfficiantName);
 }
 
 console.log('--------------------------Person--------------------------');
@@ -224,8 +222,8 @@ for (let i = 0; i < personsCount; i += 3) {
     birth: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
     sex: 'žena',
     religion: religion,
-    mother: null,
-    father: null,
+    mother: 99999,
+    father: 99999,
   };
 
   let father = {
@@ -237,8 +235,8 @@ for (let i = 0; i < personsCount; i += 3) {
     birth: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
     sex: 'muž',
     religion: religion,
-    mother: null,
-    father: null,
+    mother: 99999,
+    father: 99999,
   };
 
   let Person = {
@@ -256,9 +254,9 @@ for (let i = 0; i < personsCount; i += 3) {
 
   persons = [...persons, mother, father, Person];
 
-  // sqlInsert('Person', mother);
-  // sqlInsert('Person', father);
-  // sqlInsert('Person', Person);
+  sqlInsert('Person', mother);
+  sqlInsert('Person', father);
+  sqlInsert('Person', Person);
 }
 
 console.log('--------------------------PersonName--------------------------');
@@ -272,7 +270,7 @@ for (let i = 0; i < personsCount; i++) {
     // sex: '???' TODO
   };
 
-  // sqlInsert('PersonName', PersonName);
+  sqlInsert('PersonName', PersonName);
 }
 
 console.log('--------------------------PersonOccupation--------------------------');
@@ -285,7 +283,7 @@ for (let i = 0; i < personsCount; i++) {
     occup: occupationIndices.next().value,
   };
 
-  // sqlInsert('PersonOccupation', PersonOccupation);
+  sqlInsert('PersonOccupation', PersonOccupation);
 }
 
 console.log('--------------------------Marriage--------------------------');
@@ -303,18 +301,18 @@ for (let i = 0; i < marriagesCount; i++) {
   console.log('--------------------------Witness--------------------------');
 
   let randomPersons = persons.map(person => person).sort().sort(() => Math.random() - 0.5).slice(0, 4);
-  console.log(randomPersons);
+  // console.log(randomPersons);
 
   for (let j = 0; j < 4; j++) {
     let Witness = {
-      person: randomPersons[j],
+      person: randomPersons[j]._id_person,
       marriage: i,
       side: j > 1 ? 'nevěsty' : 'ženicha',
       relationship: Math.random() > 0.6 ? 'sourozenec' : Math.random() < 0.3 ? 'přítel': 'jiné',
     };
 
-    console.log(Witness);
-    // sqlInsert('Witness', Witness);
+    // console.log(Witness);
+    sqlInsert('Witness', Witness);
   }
 
   let Marriage = {
@@ -323,47 +321,73 @@ for (let i = 0; i < marriagesCount; i++) {
     rec_order: Math.floor(Math.random() * 1000),
     scan_order: Math.floor(Math.random() * 1000),
     scan_layout: Math.random() < 0.5 ? 'C' : Math.random() > 0.7 ? 'L' : 'P',
-    date: faker.fake("{{date.past}}"),
+    date: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
     village: VILLAGES[marriageVillageIndices.next().value],
-    groom_y: 'aa',
-    groom_m: 'aa',
-    groom_d: 'aa',
-    bride_y: 'aa',
-    bride_m: 'aa',
-    bride_d: 'aa',
-    groom_adult: 'aa',
-    bride_adult: 'aa',
+    groom_y: 24,
+    groom_m: 4,
+    groom_d: 5,
+    bride_y: 19,
+    bride_m: 5,
+    bride_d: 15,
+    groom_adult: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
+    bride_adult: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
     relationship: Math.random() > 0.8 ? 'ano' : 'ne', // TODO?,
     banns_1: 'aa',
     banns_2: 'aa',
     banns_3: 'aa',
-    register: 1,
-    user: 1,
-    groom: 1,
-    bride: 2,
-    officiant: 1,
+    // user: 1,
+    // register: 1,
+    // groom: 1,
+    // bride: 2,
+    // officiant: 1,
   };
 
   marriages = [...marriages, Marriage];
 
-  // sqlInsert('Marriage', Marriage);
+  sqlInsert('Marriage', Marriage);
 }
-
-console.log('--------------------------Death--------------------------');
-
-let deaths = [];
-
-for (let i = 0; i < deathsCount; i++) {
-
-  let [descr, street] = faker.fake("{{address.streetAddress}}").split(' ');
-
-  let Death = {
-    _id_death: i,
-  };
-
-  deaths = [...deaths, Death];
-
-  // sqlInsert('Death', Death);
-}
+//
+// console.log('--------------------------Death--------------------------');
+//
+// let deaths = [];
+//
+// for (let i = 0; i < deathsCount; i++) {
+//
+//   let [descr, street] = faker.fake("{{address.streetAddress}}").split(' ');
+//
+//   let Death = {
+//     _id_marriage: i,
+//     rec_ready: Math.random() > 0.9,
+//     rec_order: Math.floor(Math.random() * 1000),
+//     scan_order: Math.floor(Math.random() * 1000),
+//     scan_layout: Math.random() < 0.5 ? 'C' : Math.random() > 0.7 ? 'L' : 'P',
+//     provision_date: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
+//     death_date: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
+//     funeral_date: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
+//     death_village: 'aa',
+//     death_street: 'aa',
+//     death_descr: 42,
+//     place_funeral: 'aa',
+//     place_death: 'aa',
+//     widowed: 'aa',
+//     age_y: 'aa',
+//     age_m: 'aa',
+//     age_d: 'aa',
+//     age_h: 'aa',
+//     death_cause: 'aa',
+//     inspection: 'aa',
+//     inspection_by: 'aa',
+//     notes: 'aa',
+//     register: 1,
+//     user: 1,
+//     person: 1,
+//     director: 1,
+//     celebrant: 1,
+//   };
+//
+//   deaths = [...deaths, Death];
+//
+//   sqlInsert('Death', Death);
+// }
 
 // fs.writeFileSync('output/test.txt', 'yololo');
