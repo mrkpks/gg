@@ -2,7 +2,7 @@
 // const moment = require('moment');
 // const fs = require('fs');
 
-const VILLAGES = require('./data/towns_cz');
+const VILLAGES = require('./data/towns.cz');
 
 const NAMES_ALL = require('./data/names.all');
 const NAMES_MEN = require('./data/names.men');
