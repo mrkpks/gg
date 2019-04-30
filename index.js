@@ -124,10 +124,24 @@ fs.appendFileSync(
   {'flags': 'a+'}
 );
 
-for (let i = 0; i < namesCount; i++) {
-  let Name = {
+let menNames = [];
+let womenNames = [];
+
+for (let i = 0; i < NAMES_MEN.length; i++) {
+  const ManName = {
     _id_name: i,
-    name: NAMES_ALL[i],
+    name: NAMES_MEN[i],
+  };
+
+  menNames = [...menNames, ManName];
+
+  sqlInsert('Name', ManName);
+}
+
+for (let i = 0; i < NAMES_WOMEN.length; i++) {
+  const WomanName = {
+    _id_name: i + NAMES_MEN.length,
+    name: NAMES_WOMEN[i],
   };
 
   womenNames = [...womenNames, WomanName];
@@ -256,7 +270,13 @@ for (let i = 0; i < officiantsCount; i++) {
   sqlInsert('Officiant', Officiant);
 }
 
-console.log('--------------------------OfficiantName--------------------------');
+// console.log('--------------------------OfficiantName--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------OfficiantName--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 const officiantNameIndices = randomIndexFrom(namesCount);
 
@@ -344,12 +364,15 @@ fs.appendFileSync(
 );
 
 const personNameIndices = randomIndexFrom(namesCount);
+const menNameIndices = randomIndexFrom(NAMES_MEN.length);
+const womenNameIndices = randomIndexFrom(NAMES_WOMEN.length);
 
 for (let i = 0; i < personsCount; i++) {
-  let PersonName = {
-    person: i,
-    name: personNameIndices.next().value,
-    // sex: '???' TODO
+  const isMan = persons[i].sex === 'muž';
+
+  const PersonName = {
+    person_id: i,
+    name_id: isMan ? menNameIndices.next().value : NAMES_MEN.length + womenNameIndices.next().value
   };
 
   sqlInsert('PersonName', PersonName);
