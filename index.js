@@ -16,8 +16,10 @@ const DIRECTOR_TITLES = require('./data/director.titles');
 const CELEBRANT_TITLES = require('./data/celebrant.titles');
 const OFFICIANT_TITLES = require('./data/officiant.titles');
 
-let faker = require('faker');
-let dateFns = require('date-fns');
+const fs = require('fs');
+const faker = require('faker');
+const dateFns = require('date-fns');
+const randomDate = require('randomdate');
 
 const usersCount = 2;
 const archivesCount = 2;
@@ -29,13 +31,15 @@ const deathsCount = Math.ceil((registersCount / 10) * 7); // TODO check
 const marriagesCount = Math.floor((registersCount / 10) * 3); // TODO check
 const villagesCount = Math.min(VILLAGES.length, 15); // TODO 15->arg?
 
-const personsCount = 20; // TODO arg?
+const personsCount = deathsCount + marriagesCount * 8; // TODO arg?
 const namesCount = Math.min(NAMES_ALL.length, Math.floor(personsCount / 3)); // TODO check
 const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 15); // TODO 15->arg?;
 
 const directorsCount = 3;
 const celebrantsCount = 3;
 const officiantsCount = 3;
+
+const OUTPUT_FILE = 'postgres/postgres.inserts.sql';
 
 faker.locale = 'cz';
 
@@ -44,7 +48,13 @@ function sqlInsert(entityName, entity) {
 
   let values = Object.values(entity).map(value => isNaN(value) ? `'${value}'` : value);
 
-  console.log(`INSERT INTO "${entityName}" (${columns}) VALUES (${values});`);
+  fs.appendFileSync(
+    OUTPUT_FILE,
+    `INSERT INTO "${entityName}" (${columns}) VALUES (${values});\n`,
+    'UTF-8',
+    {'flags': 'a+'}
+  );
+  // console.log(`INSERT INTO "${entityName}" (${columns}) VALUES (${values});\n`);
 }
 
 function* randomIndexFrom(length) {
@@ -60,10 +70,18 @@ function* randomIndexFrom(length) {
   }
 }
 
-console.log('--------------------------User--------------------------');
+fs.writeFileSync(OUTPUT_FILE, '');
+
+// console.log('--------------------------User--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------User--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 for (let i = 0; i < usersCount; i++) {
-  let User = {
+  const User = {
     _id_user: i,
     name: faker.fake("{{name.firstName}} {{name.lastName}}"),
   };
@@ -71,14 +89,20 @@ for (let i = 0; i < usersCount; i++) {
   sqlInsert('User', User);
 }
 
-console.log('--------------------------Register--------------------------');
+// console.log('--------------------------Register--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------Register--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 let registers = [];
 
 for (let i = 0; i < archivesCount; i++) {
   for (let j = 0; j < fondsCount; j++) {
     for (let k = 0; k < signaturesCount; k++) {
-      let Register = {
+      const Register = {
         _id_register: i * fondsCount * signaturesCount + j * signaturesCount + k,
         archive: `AR${i}`,
         fond: `FOND${j}`,
@@ -92,7 +116,13 @@ for (let i = 0; i < archivesCount; i++) {
   }
 }
 
-console.log('--------------------------Name--------------------------');
+// console.log('--------------------------Name--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------Name--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 for (let i = 0; i < namesCount; i++) {
   let Name = {
@@ -100,13 +130,23 @@ for (let i = 0; i < namesCount; i++) {
     name: NAMES_ALL[i],
   };
 
-  sqlInsert('Name', Name);
+  womenNames = [...womenNames, WomanName];
+
+  sqlInsert('Name', WomanName);
 }
 
-console.log('--------------------------Occupation--------------------------');
+const names = menNames.concat(womenNames);
+
+// console.log('--------------------------Occupation--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------Occupation--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 for (let i = 0; i < Math.min(occupationsCount, PERSON_OCCUPATIONS.length); i++) {
-  let Occupation = {
+  const Occupation = {
     _id_occup: i,
     name: PERSON_OCCUPATIONS.map(occ => occ).sort(() => Math.random() - 0.5)[i],
   };
@@ -114,14 +154,20 @@ for (let i = 0; i < Math.min(occupationsCount, PERSON_OCCUPATIONS.length); i++) 
   sqlInsert('Occupation', Occupation);
 }
 
-console.log('--------------------------Director--------------------------');
+// console.log('--------------------------Director--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------Director--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 const directorTitleIndices = randomIndexFrom(DIRECTOR_TITLES.length);
 const directorSurnames = SURNAMES_MEN.map(sur => sur).sort(() => Math.random() - 0.5).slice(0, directorsCount);
 
 for (let i = 0; i < directorsCount; i++) {
 
-  let Director = {
+  const Director = {
     _id_director: i,
     surname: directorSurnames[i],
     title: DIRECTOR_TITLES[directorTitleIndices.next().value],
@@ -130,26 +176,38 @@ for (let i = 0; i < directorsCount; i++) {
   sqlInsert('Director', Director);
 }
 
-console.log('--------------------------DirectorName--------------------------');
+// console.log('--------------------------DirectorName--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------DirectorName--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 const directorNameIndices = randomIndexFrom(namesCount);
 
 for (let i = 0; i < directorsCount; i++) {
-  let DirectorName = {
-    director: i,
-    name: directorNameIndices.next().value,
+  const DirectorName = {
+    director_id: i,
+    name_id: directorNameIndices.next().value,
   };
 
   sqlInsert('DirectorName', DirectorName);
 }
 
-console.log('--------------------------Celebrant--------------------------');
+// console.log('--------------------------Celebrant--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------Celebrant--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 const celebrantTitleIndices = randomIndexFrom(CELEBRANT_TITLES.length);
 const celebrantSurnames = SURNAMES_MEN.map(sur => sur).sort(() => Math.random() - 0.5).slice(0, celebrantsCount);
 
 for (let i = 0; i < celebrantsCount; i++) {
-  let Celebrant = {
+  const Celebrant = {
     _id_celebrant: i,
     surname: celebrantSurnames[i],
     title_occup: CELEBRANT_TITLES[celebrantTitleIndices.next().value],
@@ -158,26 +216,38 @@ for (let i = 0; i < celebrantsCount; i++) {
   sqlInsert('Celebrant', Celebrant);
 }
 
-console.log('--------------------------CelebrantName--------------------------');
+// console.log('--------------------------CelebrantName--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------CelebrantName--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 const celebrantNameIndices = randomIndexFrom(namesCount);
 
 for (let i = 0; i < celebrantsCount; i++) {
-  let CelebrantName = {
-    celebrant: i,
-    name: celebrantNameIndices.next().value,
+  const CelebrantName = {
+    celebrant_id: i,
+    name_id: celebrantNameIndices.next().value,
   };
 
   sqlInsert('CelebrantName', CelebrantName);
 }
 
-console.log('--------------------------Officiant--------------------------');
+// console.log('--------------------------Officiant--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------Officiant--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 const officiantTitleIndices = randomIndexFrom(OFFICIANT_TITLES.length);
 const officiantSurnames = SURNAMES_MEN.map(sur => sur).sort(() => Math.random() - 0.5).slice(0, officiantsCount);
 
 for (let i = 0; i < officiantsCount; i++) {
-  let Officiant = {
+  const Officiant = {
     _id_officiant: i,
     surname: officiantSurnames[i],
     title: OFFICIANT_TITLES[officiantTitleIndices.next().value],
@@ -191,15 +261,21 @@ console.log('--------------------------OfficiantName--------------------------')
 const officiantNameIndices = randomIndexFrom(namesCount);
 
 for (let i = 0; i < officiantsCount; i++) {
-  let OfficiantName = {
-    officiant: i,
-    name: officiantNameIndices.next().value,
+  const OfficiantName = {
+    officiant_id: i,
+    name_id: officiantNameIndices.next().value,
   };
 
   sqlInsert('OfficiantName', OfficiantName);
 }
 
-console.log('--------------------------Person--------------------------');
+// console.log('--------------------------Person--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------Person--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 const personManSurnames = SURNAMES_MEN.map(sur => sur).sort(() => Math.random() - 0.5);
 const personWomanSurnames = SURNAMES_WOMEN.map(sur => sur).sort(() => Math.random() - 0.5);
@@ -259,7 +335,13 @@ for (let i = 0; i < personsCount; i += 3) {
   sqlInsert('Person', Person);
 }
 
-console.log('--------------------------PersonName--------------------------');
+// console.log('--------------------------PersonName--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------PersonName--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 const personNameIndices = randomIndexFrom(namesCount);
 
@@ -273,32 +355,45 @@ for (let i = 0; i < personsCount; i++) {
   sqlInsert('PersonName', PersonName);
 }
 
-console.log('--------------------------PersonOccupation--------------------------');
+// console.log('--------------------------PersonOccupation--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------PersonOccupation--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 const occupationIndices = randomIndexFrom(namesCount);
 
 for (let i = 0; i < personsCount; i++) {
-  let PersonOccupation = {
-    person: i,
-    occup: occupationIndices.next().value,
+  const PersonOccupation = {
+    person_id: i,
+    occup_id: occupationIndices.next().value,
   };
 
   sqlInsert('PersonOccupation', PersonOccupation);
 }
 
-console.log('--------------------------Marriage--------------------------');
+// console.log('--------------------------Marriage--------------------------');
+fs.appendFileSync(
+  OUTPUT_FILE,
+  '--------------------------Marriage--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 let marriages = [];
 
 for (let i = 0; i < marriagesCount; i++) {
   const marriageVillageIndices = randomIndexFrom(villagesCount);
-  const males = persons.filter(person => person.sex === 'muž');
-  const females = persons.filter(person => person.sex === 'žena');
 
-  // console.log(males);
-  // console.log(females);
-
-  console.log('--------------------------Witness--------------------------');
+  // console.log('--------------------------Witness--------------------------');
+  fs.appendFileSync(
+    OUTPUT_FILE,
+    '--------------------------Witness--------------------------\n',
+    'UTF-8',
+    {'flags': 'a+'}
+  );
 
   let randomPersons = persons.map(person => person).sort().sort(() => Math.random() - 0.5).slice(0, 4);
   // console.log(randomPersons);
@@ -317,7 +412,7 @@ for (let i = 0; i < marriagesCount; i++) {
 
   let Marriage = {
     _id_marriage: i,
-    rec_ready: Math.random() > 0.9,
+    rec_ready: Math.random() > 0.2,
     rec_order: Math.floor(Math.random() * 1000),
     scan_order: Math.floor(Math.random() * 1000),
     scan_layout: Math.random() < 0.5 ? 'C' : Math.random() > 0.7 ? 'L' : 'P',
@@ -357,7 +452,7 @@ for (let i = 0; i < marriagesCount; i++) {
 //
 //   let Death = {
 //     _id_marriage: i,
-//     rec_ready: Math.random() > 0.9,
+//     rec_ready: Math.random() > 0.2,
 //     rec_order: Math.floor(Math.random() * 1000),
 //     scan_order: Math.floor(Math.random() * 1000),
 //     scan_layout: Math.random() < 0.5 ? 'C' : Math.random() > 0.7 ? 'L' : 'P',
@@ -378,11 +473,11 @@ for (let i = 0; i < marriagesCount; i++) {
 //     inspection: 'aa',
 //     inspection_by: 'aa',
 //     notes: 'aa',
-//     register: 1,
-//     user: 1,
-//     person: 1,
-//     director: 1,
-//     celebrant: 1,
+//     register_id: 1,
+//     user_id: 1,
+//     person_id: 1,
+//     director_id: 1,
+//     celebrant_id: 1,
 //   };
 //
 //   deaths = [...deaths, Death];
@@ -390,4 +485,3 @@ for (let i = 0; i < marriagesCount; i++) {
 //   sqlInsert('Death', Death);
 // }
 
-// fs.writeFileSync('output/test.txt', 'yololo');
