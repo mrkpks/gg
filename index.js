@@ -298,54 +298,62 @@ fs.appendFileSync(
 );
 
 const personManSurnames = SURNAMES_MEN.map(sur => sur).sort(() => Math.random() - 0.5);
+const personManIndices = randomIndexFrom(personManSurnames.length);
+
 const personWomanSurnames = SURNAMES_WOMEN.map(sur => sur).sort(() => Math.random() - 0.5);
+const personWomanIndices = randomIndexFrom(personWomanSurnames.length);
 
 let persons = [];
 
 for (let i = 0; i < personsCount; i += 3) {
 
-  let [descr, street] = faker.fake("{{address.streetAddress}}").split(' ');
-  let sex = Math.random() > 0.6 ? 'muž' : 'žena';
-  let surname = sex === 'muž' ? personManSurnames[i] : personWomanSurnames[i];
-  let religion = Math.random() > 0.7 ? 'evangelík' : 'katolík';
+  const [descr, street] = faker.fake("{{address.streetAddress}}").split(' ');
+  const sex = Math.random() > 0.6 ? 'muž' : 'žena';
+  const surname = sex === 'muž'
+    ? personManSurnames[personManIndices.next().value]
+    : personWomanSurnames[personWomanIndices.next().value];
+  const religion = Math.random() > 0.7 ? 'evangelík' : 'katolík';
 
-  let mother = {
+  const motherSurname = sex === 'muž' ? `${surname}ová` : surname;
+  const fatherSurname = sex === 'muž' ? surname : surname.slice(0, surname.indexOf('ová'));
+
+  const mother = {
     _id_person: i,
-    surname: surname,
+    surname: motherSurname,
     village: VILLAGES[i],
     street: street,
     descr: descr,
-    birth: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
+    birth: dateFns.format(randomDate(new Date('1800-01-01'), new Date('1810-01-01')), 'YYYY-MM-DD'),
     sex: 'žena',
     religion: religion,
-    mother: 99999,
-    father: 99999,
+    // mother_id: 99999,
+    // father_id: 99999,
   };
 
-  let father = {
+  const father = {
     _id_person: i+1,
-    surname: surname,
+    surname: fatherSurname,
     village: VILLAGES[i],
     street: street,
     descr: descr,
-    birth: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
+    birth: dateFns.format(randomDate(new Date('1800-01-01'), new Date('1810-01-01')), 'YYYY-MM-DD'),
     sex: 'muž',
     religion: religion,
-    mother: 99999,
-    father: 99999,
+    // mother_id: 99999,
+    // father_id: 99999,
   };
 
-  let Person = {
+  const Person = {
     _id_person: i + 2,
     surname: surname,
     village: VILLAGES[i],
     street: street,
     descr: descr,
-    birth: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
+    birth: dateFns.format(randomDate(new Date('1825-01-01'), new Date('1840-01-01')), 'YYYY-MM-DD'),
     sex: sex,
     religion: religion,
-    mother: i,
-    father: i + 1,
+    mother_id: i,
+    father_id: i + 1,
   };
 
   persons = [...persons, mother, father, Person];
