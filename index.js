@@ -430,9 +430,9 @@ for (let i = 0; i < marriagesCount; i++) {
   // console.log(randomPersons);
 
   for (let j = 0; j < 4; j++) {
-    let Witness = {
-      person: randomPersons[j]._id_person,
-      marriage: i,
+    const Witness = {
+      person_id: randomPersons[j]._id_person,
+      marriage_id: i,
       side: j > 1 ? 'nevěsty' : 'ženicha',
       relationship: Math.random() > 0.6 ? 'sourozenec' : Math.random() < 0.3 ? 'přítel': 'jiné',
     };
@@ -441,31 +441,53 @@ for (let i = 0; i < marriagesCount; i++) {
     sqlInsert('Witness', Witness);
   }
 
-  let Marriage = {
+  const groom = persons.filter(person => person.sex === 'muž').sort(() => Math.random() - 0.5)[0];
+  const bride = persons.filter(person => person.sex === 'žena' && person.surname !== `${groom.surname}ová`).sort(() => Math.random() - 0.5)[0];
+  // console.log(groom._id_person, groom.sex, groom.surname, groom.birth, groom.mother_id, groom.father_id);
+  // console.log(bride._id_person, bride.sex, bride.surname, bride.birth, bride.mother_id, bride.father_id);
+
+  const marriageDate = dateFns.format(
+    randomDate(
+      dateFns.addYears(new Date(groom.birth), Math.floor(Math.random() * 20 + 15)),
+      dateFns.addYears(new Date(bride.birth), Math.floor(Math.random() * 20 + 15))),
+    'YYYY-MM-DD'
+  );
+
+  const groomDateDiffDays = dateFns.differenceInDays(new Date(marriageDate), new Date(groom.birth));
+  const groom_y = Math.floor(groomDateDiffDays / 365);
+  const groom_m = Math.floor((groomDateDiffDays - groom_y * 365) / 30);
+  const groom_d = Math.floor((groomDateDiffDays - groom_y * 365 - groom_m * 30));
+
+  const brideDateDiffDays = dateFns.differenceInDays(new Date(marriageDate), new Date(bride.birth));
+  const bride_y = Math.floor(brideDateDiffDays / 365);
+  const bride_m = Math.floor((brideDateDiffDays - bride_y * 365) / 30);
+  const bride_d = Math.floor((brideDateDiffDays - bride_y * 365 - bride_m * 30));
+
+  const Marriage = {
     _id_marriage: i,
     rec_ready: Math.random() > 0.2,
     rec_order: Math.floor(Math.random() * 1000),
     scan_order: Math.floor(Math.random() * 1000),
     scan_layout: Math.random() < 0.5 ? 'C' : Math.random() > 0.7 ? 'L' : 'P',
-    date: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
+    date: marriageDate,
     village: VILLAGES[marriageVillageIndices.next().value],
-    groom_y: 24,
-    groom_m: 4,
-    groom_d: 5,
-    bride_y: 19,
-    bride_m: 5,
-    bride_d: 15,
-    groom_adult: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
-    bride_adult: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
+    groom_y: groom_y,
+    groom_m: groom_m,
+    groom_d: groom_d,
+    bride_y: bride_y,
+    bride_m: bride_m,
+    bride_d: bride_d,
+    groom_adult: brideDateDiffDays > 18,
+    bride_adult: brideDateDiffDays > 18,
     relationship: Math.random() > 0.8 ? 'ano' : 'ne', // TODO?,
-    banns_1: 'aa',
-    banns_2: 'aa',
-    banns_3: 'aa',
-    // user: 1,
-    // register: 1,
-    // groom: 1,
-    // bride: 2,
-    // officiant: 1,
+    banns_1: 'banns1',
+    banns_2: 'banns2',
+    banns_3: 'banns3',
+    user_id: 1,
+    register_id: 1,
+    groom_id: groom._id_person,
+    bride_id: bride._id_person,
+    officiant_id: 1,
   };
 
   marriages = [...marriages, Marriage];
