@@ -331,25 +331,28 @@ const personWomanIndices = randomIndexFrom(personWomanSurnames.length);
 
 let persons = [];
 
-for (let i = 0; i < personsCount; i += 3) {
+for (let i = 0; i < personsCount;) { // increment inside cycle for each person
 
   const [descr, street] = faker.fake("{{address.streetAddress}}").split(' ');
-  const sex = Math.random() > 0.6 ? 'muž' : 'žena';
-  const surname = sex === 'muž'
+  const personSex = Math.random() > 0.5 ? 'muž' : 'žena';
+  const surname = personSex === 'muž'
     ? personManSurnames[personManIndices.next().value]
     : personWomanSurnames[personWomanIndices.next().value];
+
+  const personVillage = VILLAGES[i];
+
   const randomReligion = Math.random() > 0.65 ? 'evangelík' :  Math.random() > 0.4 ? 'katolík' : 'nepokřtěn';
   const religionFather = Math.random() > 0.65 ? 'evangelík' :  Math.random() > 0.4 ? 'katolík' : 'nepokřtěn';
   const religionMother = Math.random() > 0.4 ? religionFather :  randomReligion;
   const religionPerson = Math.random() > 0.5 ? religionFather :  religionMother;
 
-  const motherSurname = sex === 'muž' ? `${surname}ová` : surname;
-  const fatherSurname = sex === 'muž' ? surname : surname.slice(0, surname.indexOf('ová'));
+  const motherSurname = personSex === 'muž' ? `${surname}ová` : surname;
+  const fatherSurname = personSex === 'muž' ? surname : surname.slice(0, surname.indexOf('ová'));
 
-  const mother = {
+  const Mother = {
     _id_person: i,
     surname: motherSurname,
-    village: VILLAGES[i],
+    village: personVillage,
     street: street,
     descr: descr,
     birth: dateFns.format(randomDate(new Date('1800-01-01'), new Date('1810-01-01')), 'YYYY-MM-DD'),
@@ -359,10 +362,14 @@ for (let i = 0; i < personsCount; i += 3) {
     // father_id: 99999,
   };
 
-  const father = {
-    _id_person: i+1,
+  i++; // increment for each person !!!
+  persons.push(Mother);
+  sqlInsert('Person', Mother);
+
+  const Father = {
+    _id_person: i,
     surname: fatherSurname,
-    village: VILLAGES[i],
+    village: personVillage,
     street: street,
     descr: descr,
     birth: dateFns.format(randomDate(new Date('1800-01-01'), new Date('1810-01-01')), 'YYYY-MM-DD'),
@@ -372,24 +379,66 @@ for (let i = 0; i < personsCount; i += 3) {
     // father_id: 99999,
   };
 
+  i++; // increment for each person !!!
+  persons.push(Father);
+  sqlInsert('Person', Father);
+
   const Person = {
-    _id_person: i + 2,
+    _id_person: i,
     surname: surname,
-    village: VILLAGES[i],
+    village: personVillage,
     street: street,
     descr: descr,
     birth: dateFns.format(randomDate(new Date('1825-01-01'), new Date('1840-01-01')), 'YYYY-MM-DD'),
-    sex: sex,
+    sex: personSex,
     religion: religionPerson,
-    mother_id: i,
-    father_id: i + 1,
+    mother_id: Mother._id_person,
+    father_id: Father._id_person,
   };
 
-  persons = [...persons, mother, father, Person];
-
-  sqlInsert('Person', mother);
-  sqlInsert('Person', father);
+  i++; // increment for each person !!!
+  persons.push(Person);
   sqlInsert('Person', Person);
+
+  if (Math.random() > 0.5) { // 50% persons will have randomly 1 - 4 kids (for Death records)
+    const personKidsCount = Math.floor(Math.random() * 4 + 1);
+
+    for (let j = 0; j < personKidsCount; j++) {
+      // console.log(`Kids count: ${personKidsCount} for person id: ${Person._id_person}`);
+      const kidSex = Math.random() > 0.5 ? 'muž' : 'žena';
+      const kidSameAddress = Math.random() > 0.2; // 20% kids could have other address
+
+      console.log(kidSameAddress);
+      const kidStreet = faker.fake("{{address.streetAddress}}").split(' ')[1];
+      const kidDescr = faker.fake("{{address.streetAddress}}").split(' ')[0];
+
+      let kidSurname = Person.surname;
+
+      console.log(kidStreet, kidDescr);
+
+      if (kidSex !== personSex) {
+        kidSurname = kidSex === 'žena' ? `${Person.surname}ová` : Person.surname.slice(0, surname.indexOf('ová'));
+      }
+
+      let PersonKid = {
+        _id_person: i,
+        surname: kidSurname,
+        village: kidSameAddress ? personVillage : VILLAGES[Math.floor(Math.random() * 20)],
+        street: kidStreet,
+        descr: kidDescr,
+        birth: dateFns.format(randomDate(new Date('1855-01-01'), new Date('1870-01-01')), 'YYYY-MM-DD'),
+        sex: kidSex,
+        religion: religionPerson, // same religion as person for simplicity FIXME - is needed?
+      };
+
+      // connect kid to mother / father - one of them is enough because it is needed only for Death records where dead_person is either of them (Person)
+      Person.sex === 'žena' ? PersonKid.mother_id = Person._id_person : PersonKid.father_id = Person._id_person;
+
+      persons.push(PersonKid);
+      sqlInsert('Person', PersonKid);
+      i++; // increment cycle index for each kid
+    }
+  }
 }
 
 // console.log('--------------------------PersonName--------------------------');
@@ -453,31 +502,16 @@ let witnesses = [];
 for (let i = 0; i < marriagesCount; i++) {
   const marriageVillageIndices = randomIndexFrom(villagesCount);
 
-  // console.log('--------------------------Witness--------------------------');
-  fs.appendFileSync(
-    OUTPUT_FILE,
-    '--------------------------Witness--------------------------\n',
-    'UTF-8',
-    {'flags': 'a+'}
-  );
+  const groom = persons
+    .filter(person => person.sex === 'muž' && person.mother_id && person.father_id)
+    .sort(() => Math.random() - 0.5)[0];
 
-  let randomPersons = persons.map(person => person).sort().sort(() => Math.random() - 0.5).slice(0, 4);
-  // console.log(randomPersons);
-
-  for (let j = 0; j < 4; j++) {
-    const Witness = {
-      person_id: randomPersons[j]._id_person,
-      marriage_id: i,
-      side: j > 1 ? 'nevěsty' : 'ženicha',
-      relationship: Math.random() > 0.6 ? 'sourozenec' : Math.random() < 0.3 ? 'přítel': 'jiné',
-    };
-
-    // console.log(Witness);
-    sqlInsert('Witness', Witness);
-  }
-
-  const groom = persons.filter(person => person.sex === 'muž').sort(() => Math.random() - 0.5)[0];
-  const bride = persons.filter(person => person.sex === 'žena' && person.surname !== `${groom.surname}ová`).sort(() => Math.random() - 0.5)[0];
+  const bride = persons
+    .filter(person => person.sex === 'žena'
+      && person.mother_id
+      && person.father_id
+      && person.surname !== `${groom.surname}ová`) // so groom won't marry his mother or bride her father :|
+    .sort(() => Math.random() - 0.5)[0];
   // console.log(groom._id_person, groom.sex, groom.surname, groom.birth, groom.mother_id, groom.father_id);
   // console.log(bride._id_person, bride.sex, bride.surname, bride.birth, bride.mother_id, bride.father_id);
 
@@ -528,7 +562,39 @@ for (let i = 0; i < marriagesCount; i++) {
   marriages = [...marriages, Marriage];
 
   sqlInsert('Marriage', Marriage);
+
+  // console.log('--------------------------Witness--------------------------');
+  fs.appendFileSync(
+    OUTPUT_FILE,
+    '--------------------------Witness--------------------------\n',
+    'UTF-8',
+    {'flags': 'a+'}
+  );
+
+  const marriageWitnesses = persons
+    .filter(person => person._id_person !== groom._id_person && person._id_person !== bride._id_person)
+    .sort(() => Math.random() - 0.5).slice(0, 4);
+
+  // console.log('Marriage groom, bride IDs: ', Marriage.groom_id, Marriage.bride_id);
+  // marriageWitnesses.map(witness => console.log('Witness ID: ', witness._id_person));
+  // randomPersons.map(person => console.log(person._id_person));
+
+  for (let j = 0; j < 4; j++) {
+    const Witness = {
+      person_id: marriageWitnesses[j]._id_person,
+      marriage_id: i,
+      side: j > 1 ? 'nevěsty' : 'ženicha',
+      relationship: Math.random() > 0.6 ? 'sourozenec' : Math.random() < 0.3 ? 'přítel': 'jiné',
+    };
+
+    witnesses.push(Witness);
+
+    sqlInsert('Witness', Witness);
+  }
 }
+
+// witnesses.map(witness => console.log(witness.marriage_id, witness.person_id));
+
 //
 // console.log('--------------------------Death--------------------------');
 //
