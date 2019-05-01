@@ -312,7 +312,10 @@ for (let i = 0; i < personsCount; i += 3) {
   const surname = sex === 'muž'
     ? personManSurnames[personManIndices.next().value]
     : personWomanSurnames[personWomanIndices.next().value];
-  const religion = Math.random() > 0.7 ? 'evangelík' : 'katolík';
+  const randomReligion = Math.random() > 0.65 ? 'evangelík' :  Math.random() > 0.4 ? 'katolík' : 'nepokřtěn';
+  const religionFather = Math.random() > 0.65 ? 'evangelík' :  Math.random() > 0.4 ? 'katolík' : 'nepokřtěn';
+  const religionMother = Math.random() > 0.4 ? religionFather :  randomReligion;
+  const religionPerson = Math.random() > 0.5 ? religionFather :  religionMother;
 
   const motherSurname = sex === 'muž' ? `${surname}ová` : surname;
   const fatherSurname = sex === 'muž' ? surname : surname.slice(0, surname.indexOf('ová'));
@@ -325,7 +328,7 @@ for (let i = 0; i < personsCount; i += 3) {
     descr: descr,
     birth: dateFns.format(randomDate(new Date('1800-01-01'), new Date('1810-01-01')), 'YYYY-MM-DD'),
     sex: 'žena',
-    religion: religion,
+    religion: religionMother,
     // mother_id: 99999,
     // father_id: 99999,
   };
@@ -338,7 +341,7 @@ for (let i = 0; i < personsCount; i += 3) {
     descr: descr,
     birth: dateFns.format(randomDate(new Date('1800-01-01'), new Date('1810-01-01')), 'YYYY-MM-DD'),
     sex: 'muž',
-    religion: religion,
+    religion: religionFather,
     // mother_id: 99999,
     // father_id: 99999,
   };
@@ -351,7 +354,7 @@ for (let i = 0; i < personsCount; i += 3) {
     descr: descr,
     birth: dateFns.format(randomDate(new Date('1825-01-01'), new Date('1840-01-01')), 'YYYY-MM-DD'),
     sex: sex,
-    religion: religion,
+    religion: religionPerson,
     mother_id: i,
     father_id: i + 1,
   };
