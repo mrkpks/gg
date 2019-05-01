@@ -1,7 +1,3 @@
-// const randomName = require('node-random-name');
-// const moment = require('moment');
-// const fs = require('fs');
-
 const VILLAGES = require('./data/towns.cz');
 
 const NAMES_ALL = require('./data/names.all');
@@ -21,24 +17,26 @@ const faker = require('faker');
 const dateFns = require('date-fns');
 const randomDate = require('randomdate');
 
+// TODO discuss which should be used as optional arguments
+
 const usersCount = 2;
 const archivesCount = 2;
 const fondsCount = 3;
-const signaturesCount = 10; // TODO arg?
+const signaturesCount = 15; // arg?
 const registersCount = archivesCount * fondsCount * signaturesCount;
 
-const deathsCount = Math.ceil((registersCount / 10) * 7); // TODO check
-const marriagesCount = Math.floor((registersCount / 10) * 3); // TODO check
-const villagesCount = Math.min(VILLAGES.length, 15); // TODO 15->arg?
+const deathsCount = Math.ceil((registersCount / 10) * 7); // check
+const marriagesCount = Math.floor((registersCount / 10) * 3); // check
+const villagesCount = Math.min(VILLAGES.length, 15); // 15->arg?
 
-const personsCount = deathsCount + marriagesCount * 8; // TODO arg?
-const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 15); // TODO 15->arg?;
+const personsCount = deathsCount + marriagesCount * 8; // arg?
+const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 15); // 15->arg?;
 
 const directorsCount = 3;
 const celebrantsCount = 3;
 const officiantsCount = 3;
 
-const OUTPUT_FILE = 'postgres/postgres.inserts.sql';
+const POSTGRES_OUTPUT_FILE = 'postgres/postgres.inserts.sql';
 
 faker.locale = 'cz';
 
@@ -48,12 +46,11 @@ function sqlInsert(entityName, entity) {
   let values = Object.values(entity).map(value => isNaN(value) ? `'${value}'` : value);
 
   fs.appendFileSync(
-    OUTPUT_FILE,
+    POSTGRES_OUTPUT_FILE,
     `INSERT INTO "${entityName}" (${columns}) VALUES (${values});\n`,
     'UTF-8',
     {'flags': 'a+'}
   );
-  // console.log(`INSERT INTO "${entityName}" (${columns}) VALUES (${values});\n`);
 }
 
 function* randomIndexFrom(length) {
@@ -69,11 +66,11 @@ function* randomIndexFrom(length) {
   }
 }
 
-fs.writeFileSync(OUTPUT_FILE, '');
+fs.writeFileSync(POSTGRES_OUTPUT_FILE, '');
 
 // console.log('--------------------------User--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------User--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -94,7 +91,7 @@ for (let i = 0; i < usersCount; i++) {
 
 // console.log('--------------------------Register--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------Register--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -121,7 +118,7 @@ for (let i = 0; i < archivesCount; i++) {
 
 // console.log('--------------------------Name--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------Name--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -156,7 +153,7 @@ for (let i = 0; i < NAMES_WOMEN.length; i++) {
 
 // console.log('--------------------------Occupation--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------Occupation--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -177,7 +174,7 @@ for (let i = 0; i < Math.min(occupationsCount, PERSON_OCCUPATIONS.length); i++) 
 
 // console.log('--------------------------Director--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------Director--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -203,7 +200,7 @@ for (let i = 0; i < directorsCount; i++) {
 
 // console.log('--------------------------DirectorName--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------DirectorName--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -225,7 +222,7 @@ for (let i = 0; i < directorsCount; i++) {
 
 // console.log('--------------------------Celebrant--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------Celebrant--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -249,7 +246,7 @@ for (let i = 0; i < celebrantsCount; i++) {
 
 // console.log('--------------------------CelebrantName--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------CelebrantName--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -271,7 +268,7 @@ for (let i = 0; i < celebrantsCount; i++) {
 
 // console.log('--------------------------Officiant--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------Officiant--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -295,7 +292,7 @@ for (let i = 0; i < officiantsCount; i++) {
 
 // console.log('--------------------------OfficiantName--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------OfficiantName--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -317,7 +314,7 @@ for (let i = 0; i < officiantsCount; i++) {
 
 // console.log('--------------------------Person--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------Person--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -331,6 +328,8 @@ const personWomanIndices = randomIndexFrom(personWomanSurnames.length);
 
 let persons = [];
 
+const personVillageIndices = randomIndexFrom(villagesCount);
+
 for (let i = 0; i < personsCount;) { // increment inside cycle for each person
 
   const [descr, street] = faker.fake("{{address.streetAddress}}").split(' ');
@@ -339,7 +338,7 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
     ? personManSurnames[personManIndices.next().value]
     : personWomanSurnames[personWomanIndices.next().value];
 
-  const personVillage = VILLAGES[i];
+  const personVillage = VILLAGES[personVillageIndices.next().value];
 
   const randomReligion = Math.random() > 0.65 ? 'evangelík' :  Math.random() > 0.4 ? 'katolík' : 'nepokřtěn';
   const religionFather = Math.random() > 0.65 ? 'evangelík' :  Math.random() > 0.4 ? 'katolík' : 'nepokřtěn';
@@ -358,8 +357,7 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
     birth: dateFns.format(randomDate(new Date('1800-01-01'), new Date('1810-01-01')), 'YYYY-MM-DD'),
     sex: 'žena',
     religion: religionMother,
-    // mother_id: 99999,
-    // father_id: 99999,
+    // father_id: 99999, // FIXME? is this needed? - would have to generate another person. If so, add some randomness?
   };
 
   i++; // increment for each person !!!
@@ -375,8 +373,6 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
     birth: dateFns.format(randomDate(new Date('1800-01-01'), new Date('1810-01-01')), 'YYYY-MM-DD'),
     sex: 'muž',
     religion: religionFather,
-    // mother_id: 99999,
-    // father_id: 99999,
   };
 
   i++; // increment for each person !!!
@@ -404,17 +400,11 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
     const personKidsCount = Math.floor(Math.random() * 4 + 1);
 
     for (let j = 0; j < personKidsCount; j++) {
-      // console.log(`Kids count: ${personKidsCount} for person id: ${Person._id_person}`);
       const kidSex = Math.random() > 0.5 ? 'muž' : 'žena';
-      const kidSameAddress = Math.random() > 0.2; // 20% kids could have other address
-
-      console.log(kidSameAddress);
+      const kidSameAddress = Math.random() > 0.2; // 20% kids have different address
       const kidStreet = faker.fake("{{address.streetAddress}}").split(' ')[1];
       const kidDescr = faker.fake("{{address.streetAddress}}").split(' ')[0];
-
       let kidSurname = Person.surname;
-
-      console.log(kidStreet, kidDescr);
 
       if (kidSex !== personSex) {
         kidSurname = kidSex === 'žena' ? `${Person.surname}ová` : Person.surname.slice(0, surname.indexOf('ová'));
@@ -428,7 +418,7 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
         descr: kidDescr,
         birth: dateFns.format(randomDate(new Date('1855-01-01'), new Date('1870-01-01')), 'YYYY-MM-DD'),
         sex: kidSex,
-        religion: religionPerson, // same religion as person for simplicity FIXME - is needed?
+        religion: religionPerson, // same religion as person for simplicity FIXME - randomness?
       };
 
       // connect kid to mother / father - one of them is enough because it is needed only for Death records where dead_person is either of them (Person)
@@ -443,7 +433,7 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
 
 // console.log('--------------------------PersonName--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------PersonName--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -468,7 +458,7 @@ for (let i = 0; i < personsCount; i++) {
 
 // console.log('--------------------------PersonOccupation--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------PersonOccupation--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -490,7 +480,7 @@ for (let i = 0; i < personsCount; i++) {
 
 // console.log('--------------------------Marriage--------------------------');
 fs.appendFileSync(
-  OUTPUT_FILE,
+  POSTGRES_OUTPUT_FILE,
   '--------------------------Marriage--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -498,6 +488,10 @@ fs.appendFileSync(
 
 let marriages = [];
 let witnesses = [];
+
+const officiantsIndices = randomIndexFrom(officiants.length);
+const marriageRegistersIndices = randomIndexFrom(registers.length);
+const marriageUsersIndices = randomIndexFrom(users.length);
 
 for (let i = 0; i < marriagesCount; i++) {
   const marriageVillageIndices = randomIndexFrom(villagesCount);
@@ -532,6 +526,39 @@ for (let i = 0; i < marriagesCount; i++) {
   const bride_m = Math.floor((brideDateDiffDays - bride_y * 365) / 30);
   const bride_d = Math.floor((brideDateDiffDays - bride_y * 365 - bride_m * 30));
 
+  const marriageVillage = Math.random() > 0.5
+    ? VILLAGES[marriageVillageIndices.next().value]
+    : Math.random() > 0.5 ? groom.village : bride.village;
+
+  const relatives = Math.floor(Math.random() * 100);
+  let relationship = 'ne';
+
+  switch (relatives) { // 5% of marriages will be between relatives
+    case 95:
+      relationship = 'strýc-neteř';
+      break;
+
+    case 96:
+      relationship = 'sourozenci';
+      break;
+
+    case 97:
+      relationship = 'bratranec-sestřenice 1. stupně';
+      break;
+
+    case 98:
+      relationship = 'bratranec-sestřenice 2. stupně';
+      break;
+
+    case 99:
+      relationship = 'polosourozenci';
+      break;
+
+    default:
+      relationship = 'ne';
+      break;
+  }
+
   const Marriage = {
     _id_marriage: i,
     rec_ready: Math.random() > 0.2,
@@ -539,24 +566,24 @@ for (let i = 0; i < marriagesCount; i++) {
     scan_order: Math.floor(Math.random() * 1000),
     scan_layout: Math.random() < 0.5 ? 'C' : Math.random() > 0.7 ? 'L' : 'P',
     date: marriageDate,
-    village: VILLAGES[marriageVillageIndices.next().value],
+    village: marriageVillage,
     groom_y: groom_y,
     groom_m: groom_m,
     groom_d: groom_d,
     bride_y: bride_y,
     bride_m: bride_m,
     bride_d: bride_d,
-    groom_adult: brideDateDiffDays > 18,
-    bride_adult: brideDateDiffDays > 18,
-    relationship: Math.random() > 0.8 ? 'ano' : 'ne', // TODO?,
-    banns_1: 'banns1',
-    banns_2: 'banns2',
-    banns_3: 'banns3',
-    user_id: 1,
-    register_id: 1,
+    groom_adult: groom_y >= 18,
+    bride_adult: bride_y >= 18,
+    relationship: relationship,
+    banns_1: 'banns1', // TODO?
+    banns_2: 'banns2', // TODO?
+    banns_3: 'banns3', // TODO?
     groom_id: groom._id_person,
     bride_id: bride._id_person,
-    officiant_id: 1,
+    user_id: users[marriageUsersIndices.next().value]._id_user,
+    register_id: registers[marriageRegistersIndices.next().value]._id_register,
+    officiant_id: officiants[officiantsIndices.next().value]._id_officiant,
   };
 
   marriages = [...marriages, Marriage];
@@ -565,7 +592,7 @@ for (let i = 0; i < marriagesCount; i++) {
 
   // console.log('--------------------------Witness--------------------------');
   fs.appendFileSync(
-    OUTPUT_FILE,
+    POSTGRES_OUTPUT_FILE,
     '--------------------------Witness--------------------------\n',
     'UTF-8',
     {'flags': 'a+'}
