@@ -625,44 +625,74 @@ for (let i = 0; i < marriagesCount; i++) {
 //
 // console.log('--------------------------Death--------------------------');
 //
-// let deaths = [];
-//
-// for (let i = 0; i < deathsCount; i++) {
-//
-//   let [descr, street] = faker.fake("{{address.streetAddress}}").split(' ');
-//
-//   let Death = {
-//     _id_marriage: i,
-//     rec_ready: Math.random() > 0.2,
-//     rec_order: Math.floor(Math.random() * 1000),
-//     scan_order: Math.floor(Math.random() * 1000),
-//     scan_layout: Math.random() < 0.5 ? 'C' : Math.random() > 0.7 ? 'L' : 'P',
-//     provision_date: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
-//     death_date: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
-//     funeral_date: dateFns.format(faker.fake("{{date.past}}"), 'YYYY-MM-DD'),
-//     death_village: 'aa',
-//     death_street: 'aa',
-//     death_descr: 42,
-//     place_funeral: 'aa',
-//     place_death: 'aa',
-//     widowed: 'aa',
-//     age_y: 'aa',
-//     age_m: 'aa',
-//     age_d: 'aa',
-//     age_h: 'aa',
-//     death_cause: 'aa',
-//     inspection: 'aa',
-//     inspection_by: 'aa',
-//     notes: 'aa',
-//     register_id: 1,
-//     user_id: 1,
-//     person_id: 1,
-//     director_id: 1,
-//     celebrant_id: 1,
-//   };
-//
-//   deaths = [...deaths, Death];
-//
-//   sqlInsert('Death', Death);
-// }
+
+const celebrantsIndices = randomIndexFrom(celebrants.length);
+const directorsIndices = randomIndexFrom(directors.length);
+const deathRegistersIndices = randomIndexFrom(registers.length);
+const deathUsersIndices = randomIndexFrom(users.length);
+let deaths = [];
+
+const deadPersons = persons
+  .filter(person => person.mother_id && person.father_id)
+  .sort(() => Math.random() - 0.5);
+
+let deadPersonsBuffer = deadPersons;
+
+for (let i = 0; i < Math.min(deathsCount, deadPersons.length); i++) {
+  const deathVillageIndices = randomIndexFrom(villagesCount);
+  const person = deadPersonsBuffer[deadPersonsBuffer.length - 1];
+  const deathVillage = Math.random() > 0.5 ? VILLAGES[deathVillageIndices.next().value] : person.village;
+  const deathDate = dateFns.format(dateFns.addYears(new Date(person.birth), Math.floor(Math.random() * 100)), 'YYYY-MM-DD');
+  const ageDiffDays = dateFns.differenceInDays(new Date(deathDate), new Date(person.birth));
+  const age_y = Math.floor(ageDiffDays / 365);
+  const age_m = Math.floor((ageDiffDays - age_y * 365) / 30);
+  const age_d = Math.floor((ageDiffDays - age_y * 365 - age_m * 30));
+  const age_h = Math.floor(Math.random() * 24);
+
+  let [descr, street] = faker.fake("{{address.streetAddress}}").split(' ');
+
+  let Death = {
+    _id_death: i,
+    rec_ready: Math.random() > 0.2,
+    rec_order: Math.floor(Math.random() * 1000),
+    scan_order: Math.floor(Math.random() * 1000),
+    scan_layout: Math.random() < 0.5 ? 'C' : Math.random() > 0.7 ? 'L' : 'P',
+    death_village: deathVillage,
+    death_street: deathVillage === person.village ? person.street : street,
+    death_descr: deathVillage === person.village ? person.descr : descr,
+    place_funeral: person.village,
+    place_death: Math.random() > 0.9 ? 'nemocnice' : 'nezname', // TODO spravit JSON s miestami umrti? - asi zbytocne
+    widowed: Math.random() > 0.7,
+    age_y: age_y,
+    age_m: age_m,
+    age_d: age_d,
+    age_h: age_h,
+    death_cause: 'aa', // TODO JSON s pricinami umrti?
+    inspection: Math.random() > 0.7,
+    notes: 'notes', // TODO - needed?
+    person_id: person._id_person,
+    user_id: users[deathUsersIndices.next().value]._id_user,
+    register_id: registers[deathRegistersIndices.next().value]._id_register,
+    director_id: directors[directorsIndices.next().value]._id_director,
+    celebrant_id: celebrants[celebrantsIndices.next().value]._id_celebrant,
+  };
+
+  // records either have death & funeral date or provision date
+  if (Math.random() > 0.8) {
+    Death.provision_date = deathDate;
+  } else {
+    Death.death_date = deathDate;
+    Death.funeral_date = dateFns.format(dateFns.addDays(new Date(deathDate), Math.floor(Math.random() * 2 + 1)), 'YYYY-MM-DD');
+  }
+
+  if (Death.inspection) {
+    Death.inspection_by = 'Doktor z hor'; // TODO JSON s random Doktormi?
+  }
+
+  deadPersonsBuffer.pop(); // pop last person who has record
+
+  deaths = [...deaths, Death];
+
+  sqlInsert('Death', Death);
+}
 
