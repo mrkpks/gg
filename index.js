@@ -31,7 +31,7 @@ const deathsCount = Math.ceil((registersCount / 10) * 7); // check
 const marriagesCount = Math.floor((registersCount / 10) * 3); // check
 const villagesCount = Math.min(VILLAGES.length, 15); // 15->arg?
 
-const personsCount = 400; // can get to + 6 due to kids, parents.. FIXME
+const personsCount = 20; // can get to + 6 due to kids, parents.. FIXME
 const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 50); // 15->arg?;
 
 const directorsCount = 3;
@@ -375,7 +375,8 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
   };
 
   i++; // increment for each person !!!
-  persons.push(Mother);
+  // persons.push(Mother);
+  persons = [...persons, Mother];
   sqlInsert('Person', Mother);
 
   const Father = {
@@ -390,7 +391,8 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
   };
 
   i++; // increment for each person !!!
-  persons.push(Father);
+  // persons.push(Father);
+  persons = [...persons, Father];
   sqlInsert('Person', Father);
 
   const Person = {
@@ -407,7 +409,8 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
   };
 
   i++; // increment for each person !!!
-  persons.push(Person);
+  // persons.push(Person);
+  persons = [...persons, Person];
   sqlInsert('Person', Person);
 
   if (Math.random() > 0.5) { // 50% persons will have randomly 1 - 4 kids (for Death records)
@@ -439,6 +442,7 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
       Person.sex === 'žena' ? PersonKid.mother_id = Person._id_person : PersonKid.father_id = Person._id_person;
 
       persons.push(PersonKid);
+      persons = [...persons, PersonKid]
       sqlInsert('Person', PersonKid);
       i++; // increment cycle index for each kid
     }
@@ -792,7 +796,6 @@ deaths.map(deathRecord => {
   const dirNameRefs = directorNames
     .filter(dirName => dirName.director_id === deathRecord.director_id)
     .map(dirName => dirName.name_id);
-  // console.log(deathRecord._id_death, ': ', dirNameRefs);
 
   deathDoc.director.name = allNames.find(name => name._id_name === dirNameRefs[0]).name;
 
@@ -822,46 +825,164 @@ deaths.map(deathRecord => {
   // Dead person
   deathDoc.person = persons.find(person => person._id_person === deathRecord.person_id);
 
-  const personNameRefs = personNames
-    .filter(personName => personName.person_id === deathRecord.person_id)
-    .map(personName => personName.name_id);
+  if (deathDoc.person) {
+    const personNameRefs = personNames
+      .filter(personName => personName.person_id === deathRecord.person_id)
+      .map(personName => personName.name_id);
 
-  console.log('ALLPERSONS : ', persons.length);
-  console.log('ALLNAMES: ', allNames.length);
-  console.log('NAMEREFS: ',personNameRefs);
+    const personNameEntity = allNames.find(name => name._id_name === personNameRefs[0]);
+    deathDoc.person.name = personNameEntity ? personNameEntity.name : '';
 
-  deathDoc.person.name = allNames.find(name => name._id_name === personNameRefs[0]).name;
-
-  // For now only counting with max 2 names FIXME?
-  if (personNameRefs.length === 2) {
-    deathDoc.person.middle_name = allNames.find(name => name._id_name === personNameRefs[1]).name;
-  }
-
-  const personOccupRefs = personOccupations
-    .filter(personOccup => personOccup.person_id === deathRecord.person_id)
-    .map(personOccup => personOccup.occup_id);
-
-  if (personOccupRefs.length > 0) {
-    deathDoc.person.occupations = [];
-
-    console.log(personOccupRefs);
-
-    for (let i = 0; i < personOccupRefs.length; i++) {
-      deathDoc.person.occupations = [
-        ...deathDoc.person.occupations,
-        occupations.find(occup => occup._id_occup === personOccupRefs[i]).name
-      ];
+    // For now only counting with max 2 names FIXME?
+    if (personNameRefs.length === 2) {
+      deathDoc.person.middle_name = allNames.find(name => name._id_name === personNameRefs[1]).name;
     }
+
+    const personOccupRefs = personOccupations
+      .filter(personOccup => personOccup.person_id === deathRecord.person_id)
+      .map(personOccup => personOccup.occup_id);
+
+    if (personOccupRefs.length > 0) {
+      deathDoc.person.occupations = [];
+
+      for (let i = 0; i < personOccupRefs.length; i++) {
+        deathDoc.person.occupations = [
+          ...deathDoc.person.occupations,
+          occupations.find(occup => occup._id_occup === personOccupRefs[i]).name
+        ];
+      }
+    }
+
+    // Dead person's father
+    deathDoc.father = persons.find(person => person._id_person === deathDoc.person.father_id);
+
+    if (deathDoc.father) {
+      const fatherNameRefs = personNames
+        .filter(personName => personName.person_id === deathDoc.father._id_person)
+        .map(personName => personName.name_id);
+
+      const fatherNameEntity = allNames.find(name => name._id_name === fatherNameRefs[0]);
+      deathDoc.father.name = fatherNameEntity ? fatherNameEntity.name : '';
+
+      // deathDoc.father.name = allNames.find(name => name._id_name === fatherNameRefs[0]).name;
+
+      // For now only counting with max 2 names FIXME?
+      if (fatherNameRefs.length === 2) {
+        deathDoc.father.middle_name = allNames.find(name => name._id_name === fatherNameRefs[1]).name;
+      }
+
+      const fatherOccupRefs = personOccupations
+        .filter(personOccup => personOccup.person_id === deathDoc.father.person_id)
+        .map(personOccup => personOccup.occup_id);
+
+      if (fatherOccupRefs.length > 0) {
+        deathDoc.father.occupations = [];
+
+        for (let i = 0; i < fatherOccupRefs.length; i++) {
+          deathDoc.father.occupations = [
+            ...deathDoc.father.occupations,
+            occupations.find(occup => occup._id_occup === fatherOccupRefs[i]).name
+          ];
+        }
+      }
+    }
+
+    // Dead person's mother
+    deathDoc.mother = persons.find(person => person._id_person === deathDoc.person.mother_id);
+
+    if (deathDoc.mother) {
+      const motherNameRefs = personNames
+        .filter(personName => personName.person_id === deathDoc.mother._id_person)
+        .map(personName => personName.name_id);
+
+      // women have only 1 name for simplicity
+      const motherNameEntity = allNames.find(name => name._id_name === motherNameRefs[0]);
+      deathDoc.father.name = motherNameEntity ? motherNameEntity.name : '';
+      // deathDoc.mother.name = allNames.find(name => name._id_name === motherNameRefs[0]).name;
+
+      const motherOccupRefs = personOccupations
+        .filter(personOccup => personOccup.person_id === deathDoc.mother.person_id)
+        .map(personOccup => personOccup.occup_id);
+
+      if (motherOccupRefs.length > 0) {
+        deathDoc.mother.occupations = [];
+
+        for (let i = 0; i < motherOccupRefs.length; i++) {
+          deathDoc.mother.occupations = [
+            ...deathDoc.mother.occupations,
+            occupations.find(occup => occup._id_occup === motherOccupRefs[i]).name
+          ];
+        }
+      }
+    }
+
+    // Dead person's mother's father // TODO - necessary? :/
+
+    // Dead person's bride_groom
+
+    // if is married
+    if (!!marriages.find(mar => mar.groom_id === deathRecord.person_id) || !!marriages.find(mar => mar.bride_id === deathRecord.person_id)
+    ) {
+      const brideGroomId = deathDoc.person.sex === 'muž'
+        ? marriages.find(mar => mar.groom_id === deathRecord.person_id).bride_id
+        : marriages.find(mar => mar.bride_id === deathRecord.person_id).groom_id;
+
+      deathDoc.bride_groom = persons.find(person => person._id_person === brideGroomId);
+
+      if (deathDoc.bride_groom) {
+        const brideGroomNameRefs = personNames
+          .filter(personName => personName.person_id === brideGroomId)
+          .map(personName => personName.name_id);
+
+        const bgNameEntity = allNames.find(name => name._id_name === brideGroomNameRefs[0]);
+        deathDoc.father.name = bgNameEntity ? bgNameEntity.name : '';
+        // deathDoc.bride_groom.name = allNames.find(name => name._id_name === brideGroomNameRefs[0]).name;
+
+        // For now only counting with max 2 names FIXME?
+        if (brideGroomNameRefs.length === 2) {
+          deathDoc.bride_groom.middle_name = allNames.find(name => name._id_name === brideGroomNameRefs[1]).name;
+        }
+
+        const brideGroomOccupRefs = personOccupations
+          .filter(personOccup => personOccup.person_id === brideGroomId)
+          .map(personOccup => personOccup.occup_id);
+
+        if (brideGroomOccupRefs.length > 0) {
+          deathDoc.bride_groom.occupations = [];
+
+          for (let i = 0; i < brideGroomOccupRefs.length; i++) {
+            deathDoc.bride_groom.occupations = [
+              ...deathDoc.bride_groom.occupations,
+              occupations.find(occup => occup._id_occup === brideGroomOccupRefs[i]).name
+            ];
+          }
+        }
+
+        // delete deathDoc.bride_groom['_id_person']; // TODO?
+        // delete deathDoc.bride_groom['father_id'];
+        // delete deathDoc.bride_groom['mother_id'];
+      }
+    }
+
+    // Dead person's kids // TODO
+  } else {
+    console.log(deathRecord.person_id);
+    console.log(persons[deathRecord.person_id]);
+    console.log(persons.find(person => person._id_person === deathRecord.person_id));
+    console.log(persons);
   }
+
+
 
   // Remove redundant ids used for Relational db
-  delete deathDoc['_id_death'];
-  delete deathDoc['person_id'];
-  delete deathDoc['register_id'];
-  delete deathDoc['user_id'];
-  delete deathDoc['celebrant_id'];
-  delete deathDoc['director_id'];
+  // delete deathDoc['_id_death'];
+  // delete deathDoc['person_id'];
+  // delete deathDoc['register_id'];
+  // delete deathDoc['user_id'];
+  // delete deathDoc['celebrant_id'];
+  // delete deathDoc['director_id'];
+  // TODO delete nested IDs?!
 
-  console.log(deathDoc);
+  // console.log(deathDoc);
 });
 
