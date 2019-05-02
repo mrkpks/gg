@@ -31,14 +31,15 @@ const deathsCount = Math.ceil((registersCount / 10) * 7); // check
 const marriagesCount = Math.floor((registersCount / 10) * 3); // check
 const villagesCount = Math.min(VILLAGES.length, 15); // 15->arg?
 
-const personsCount = deathsCount + marriagesCount * 8; // arg?
-const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 15); // 15->arg?;
+const personsCount = 400; // can get to + 6 due to kids, parents.. FIXME
+const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 50); // 15->arg?;
 
 const directorsCount = 3;
 const celebrantsCount = 3;
 const officiantsCount = 3;
 
 const POSTGRES_OUTPUT_FILE = 'postgres/postgres.inserts.sql';
+const MONGO_OUTPUT_FILE = 'mongodb/mongo.data.json';
 
 faker.locale = 'cz';
 
@@ -65,6 +66,17 @@ function* randomIndexFrom(length) {
 
   while (true) {
     yield indices[Math.floor(Math.random() * length)];
+  }
+}
+
+function cleanObject(obj) {
+  const propNames = Object.getOwnPropertyNames(obj);
+  for (let i = 0; i < propNames.length; i++) {
+    const propName = propNames[i];
+
+    if (obj[propName] === null || obj[propName] === undefined) {
+      delete obj[propName];
+    }
   }
 }
 
@@ -151,7 +163,7 @@ for (let i = 0; i < NAMES_WOMEN.length; i++) {
   sqlInsert('Name', WomanName);
 }
 
-// const names = menNames.concat(womenNames);
+const allNames = menNames.concat(womenNames);
 
 // console.log('--------------------------Occupation--------------------------');
 fs.appendFileSync(
@@ -163,7 +175,7 @@ fs.appendFileSync(
 
 let occupations = [];
 
-for (let i = 0; i < Math.min(occupationsCount, PERSON_OCCUPATIONS.length); i++) {
+for (let i = 0; i < occupationsCount; i++) {
   const Occupation = {
     _id_occup: i,
     name: PERSON_OCCUPATIONS.map(occ => occ).sort(() => Math.random() - 0.5)[i],
@@ -445,7 +457,7 @@ let personNames = [];
 const menNameIndices = randomIndexFrom(NAMES_MEN.length);
 const womenNameIndices = randomIndexFrom(NAMES_WOMEN.length);
 
-for (let i = 0; i < personsCount; i++) {
+for (let i = 0; i < persons.length; i++) {
   const isMan = persons[i].sex === 'muž';
 
   const PersonName = {
@@ -479,17 +491,24 @@ fs.appendFileSync(
 );
 
 let personOccupations = [];
-const occupationIndices = randomIndexFrom(PERSON_OCCUPATIONS.length);
 
-for (let i = 0; i < personsCount; i++) {
-  const PersonOccupation = {
-    person_id: i,
-    occup_id: occupationIndices.next().value,
-  };
+for (let i = 0; i < persons.length; i++) {
+  // 80% will have 1 - 3 occupations
+  if (Math.random() > 0.2) {
+    const occupationIndices = randomIndexFrom(occupationsCount);
+    const personOccupsCount = Math.floor(Math.random() * 3 + 1);
 
-  personOccupations.push(PersonOccupation);
+    for (let j = 0; j < personOccupsCount; j++) {
+      const PersonOccupation = {
+        person_id: i,
+        occup_id: occupationIndices.next().value,
+      };
 
-  sqlInsert('PersonOccupation', PersonOccupation);
+      personOccupations.push(PersonOccupation);
+
+      sqlInsert('PersonOccupation', PersonOccupation);
+    }
+  }
 }
 
 // console.log('--------------------------Marriage--------------------------');
@@ -686,7 +705,6 @@ for (let i = 0; i < Math.min(deathsCount, deadPersons.length); i++) {
     death_street: deathVillage === person.village ? person.street : street,
     death_descr: deathVillage === person.village ? person.descr : descr,
     place_funeral: person.village,
-    place_death: Math.random() > 0.9 ? 'nemocnice' : 'nezname', // TODO spravit JSON s miestami umrti? - asi zbytocne
     widowed: Math.random() > 0.7,
     age_y: age_y,
     age_m: age_m,
@@ -705,9 +723,9 @@ for (let i = 0; i < Math.min(deathsCount, deadPersons.length); i++) {
   // every 20th record has death place filled
   if (placeProb > 0.8) {
     if (placeProb > 0.9) {
-      Death.death_cause = 'v řece Svitavě u Bilovic';
+      Death.place_death = 'v řece Svitavě u Bilovic';
     } else {
-      Death.death_cause = 'nemocnice';
+      Death.place_death = 'nemocnice';
     }
   }
 
@@ -753,4 +771,97 @@ for (let i = 0; i < Math.min(deathsCount, deadPersons.length); i++) {
 
   sqlInsert('Death', Death);
 }
+
+/**********************Generate Death document for MongoDB**********************/
+
+deaths.map(deathRecord => {
+  // Death record attributes
+  let deathDoc = deathRecord;
+
+  // Death record connected entities
+
+  // Register
+  deathDoc.register = registers.find(reg => reg._id_register === deathRecord.register_id);
+
+  // User
+  deathDoc.user = users.find(usr => usr._id_user === deathRecord.user_id);
+
+  // Director
+  deathDoc.director = directors.find(dir => dir._id_director === deathRecord.director_id);
+
+  const dirNameRefs = directorNames
+    .filter(dirName => dirName.director_id === deathRecord.director_id)
+    .map(dirName => dirName.name_id);
+  // console.log(deathRecord._id_death, ': ', dirNameRefs);
+
+  deathDoc.director.name = allNames.find(name => name._id_name === dirNameRefs[0]).name;
+
+  // FIXME this is for more than 1 name :(
+  // for (let i = 0; i < dirNameRefs.length; i++) {
+  //   if (i === 0) {
+  //     deathDoc.director.name = allNames.find(name => name._id_name === dirNameRefs[0]).name;
+  //   } else { // each other name is stored in array middle_names
+  //     deathDoc.director.middle_names = [
+  //       ...deathDoc.director.middle_names,
+  //       allNames.find(name => name._id_name === dirNameRefs[i]).name
+  //     ];
+  //   }
+  // }
+  //
+  // console.log(deathDoc.director);
+
+  // Celebrant
+  deathDoc.celebrant = celebrants.find(cel => cel._id_celebrant === deathRecord.celebrant_id);
+
+  const celNameRefs = celebrantNames
+    .filter(celName => celName.celebrant_id === deathRecord.celebrant_id)
+    .map(celName => celName.name_id);
+
+  deathDoc.celebrant.name = allNames.find(name => name._id_name === celNameRefs[0]).name;
+
+  // Dead person
+  deathDoc.person = persons.find(person => person._id_person === deathRecord.person_id);
+
+  const personNameRefs = personNames
+    .filter(personName => personName.person_id === deathRecord.person_id)
+    .map(personName => personName.name_id);
+
+  console.log('ALLPERSONS : ', persons.length);
+  console.log('ALLNAMES: ', allNames.length);
+  console.log('NAMEREFS: ',personNameRefs);
+
+  deathDoc.person.name = allNames.find(name => name._id_name === personNameRefs[0]).name;
+
+  // For now only counting with max 2 names FIXME?
+  if (personNameRefs.length === 2) {
+    deathDoc.person.middle_name = allNames.find(name => name._id_name === personNameRefs[1]).name;
+  }
+
+  const personOccupRefs = personOccupations
+    .filter(personOccup => personOccup.person_id === deathRecord.person_id)
+    .map(personOccup => personOccup.occup_id);
+
+  if (personOccupRefs.length > 0) {
+    deathDoc.person.occupations = [];
+
+    console.log(personOccupRefs);
+
+    for (let i = 0; i < personOccupRefs.length; i++) {
+      deathDoc.person.occupations = [
+        ...deathDoc.person.occupations,
+        occupations.find(occup => occup._id_occup === personOccupRefs[i]).name
+      ];
+    }
+  }
+
+  // Remove redundant ids used for Relational db
+  delete deathDoc['_id_death'];
+  delete deathDoc['person_id'];
+  delete deathDoc['register_id'];
+  delete deathDoc['user_id'];
+  delete deathDoc['celebrant_id'];
+  delete deathDoc['director_id'];
+
+  console.log(deathDoc);
+});
 

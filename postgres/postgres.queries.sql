@@ -10,3 +10,5 @@ join "Person" on "Marriage"."groom_id"="Person"."_id_person"
 join "PersonName" on "PersonName"."person_id"="Person"."_id_person"
 join "Name" on "PersonName"."name_id"="Name"."_id_name"
 order by "Person"."_id_person";
+
+select "Person"."_id_person", "PersonName"."person_id", "PersonName"."name_id", "Name"."_id_name", "Name"."name" from "Person" join "PersonName" on "PersonName"."person_id"="Person"."_id_person" join "Name" on "Name"."_id_name"="PersonName"."name_id";
