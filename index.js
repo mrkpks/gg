@@ -12,6 +12,8 @@ const DIRECTOR_TITLES = require('./data/director.titles');
 const CELEBRANT_TITLES = require('./data/celebrant.titles');
 const OFFICIANT_TITLES = require('./data/officiant.titles');
 
+const DEATH_CAUSES = require('./data/death.causes');
+
 const fs = require('fs');
 const faker = require('faker');
 const dateFns = require('date-fns');
@@ -340,9 +342,9 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
 
   const personVillage = VILLAGES[personVillageIndices.next().value];
 
-  const randomReligion = Math.random() > 0.65 ? 'evangelík' :  Math.random() > 0.4 ? 'katolík' : 'nepokřtěn';
-  const religionFather = Math.random() > 0.65 ? 'evangelík' :  Math.random() > 0.4 ? 'katolík' : 'nepokřtěn';
-  const religionMother = Math.random() > 0.4 ? religionFather :  randomReligion;
+  const randomReligion = Math.random() > 0.5 ? 'nepokřtěn' :  Math.random() > 0.2 ? 'katolík' : 'evangelík';
+  const religionFather = Math.random() > 0.7 ? 'nepokřtěn' :  Math.random() > 0.2 ? 'katolík' : 'evangelík';
+  const religionMother = Math.random() > 0.2 ? religionFather :  randomReligion;
   const religionPerson = Math.random() > 0.5 ? religionFather :  religionMother;
 
   const motherSurname = personSex === 'muž' ? `${surname}ová` : surname;
@@ -418,7 +420,7 @@ for (let i = 0; i < personsCount;) { // increment inside cycle for each person
         descr: kidDescr,
         birth: dateFns.format(randomDate(new Date('1855-01-01'), new Date('1870-01-01')), 'YYYY-MM-DD'),
         sex: kidSex,
-        religion: religionPerson, // same religion as person for simplicity FIXME - randomness?
+        religion: Math.random() > 0.2 ? religionPerson : 'nepokřtěn', // 80% same religion as parent or 20% not baptised
       };
 
       // connect kid to mother / father - one of them is enough because it is needed only for Death records where dead_person is either of them (Person)
@@ -450,6 +452,18 @@ for (let i = 0; i < personsCount; i++) {
     person_id: i,
     name_id: isMan ? menNameIndices.next().value : NAMES_MEN.length + womenNameIndices.next().value
   };
+
+  // 30% of men will have 2 names
+  if (isMan && Math.random() > 0.7) {
+    const SecondName = {
+      person_id: i,
+      name_id: menNameIndices.next().value
+    };
+
+    personNames.push(SecondName);
+
+    sqlInsert('PersonName', SecondName);
+  }
 
   personNames.push(PersonName);
 
@@ -576,15 +590,25 @@ for (let i = 0; i < marriagesCount; i++) {
     groom_adult: groom_y >= 18,
     bride_adult: bride_y >= 18,
     relationship: relationship,
-    banns_1: 'banns1', // TODO?
-    banns_2: 'banns2', // TODO?
-    banns_3: 'banns3', // TODO?
     groom_id: groom._id_person,
     bride_id: bride._id_person,
     user_id: users[marriageUsersIndices.next().value]._id_user,
     register_id: registers[marriageRegistersIndices.next().value]._id_register,
     officiant_id: officiants[officiantsIndices.next().value]._id_officiant,
   };
+
+  // add banns dates to some marriage records
+  if (Math.random() > 0.5) {
+    Marriage.banns_1 = dateFns.format(dateFns.subDays(new Date(marriageDate), 7), 'YYYY-MM-DD');
+
+    if (Math.random() > 0.5) {
+      Marriage.banns_2 = dateFns.format(dateFns.subDays(new Date(marriageDate), 14), 'YYYY-MM-DD');
+
+      if (Math.random() > 0.5) {
+        Marriage.banns_3 = dateFns.format(dateFns.subDays(new Date(marriageDate), 21), 'YYYY-MM-DD');
+      }
+    }
+  }
 
   marriages = [...marriages, Marriage];
 
@@ -630,6 +654,7 @@ const celebrantsIndices = randomIndexFrom(celebrants.length);
 const directorsIndices = randomIndexFrom(directors.length);
 const deathRegistersIndices = randomIndexFrom(registers.length);
 const deathUsersIndices = randomIndexFrom(users.length);
+const deathCausesIndices = randomIndexFrom(DEATH_CAUSES.length);
 let deaths = [];
 
 const deadPersons = persons
@@ -667,15 +692,48 @@ for (let i = 0; i < Math.min(deathsCount, deadPersons.length); i++) {
     age_m: age_m,
     age_d: age_d,
     age_h: age_h,
-    death_cause: 'aa', // TODO JSON s pricinami umrti?
     inspection: Math.random() > 0.7,
-    notes: 'notes', // TODO - needed?
     person_id: person._id_person,
     user_id: users[deathUsersIndices.next().value]._id_user,
     register_id: registers[deathRegistersIndices.next().value]._id_register,
     director_id: directors[directorsIndices.next().value]._id_director,
     celebrant_id: celebrants[celebrantsIndices.next().value]._id_celebrant,
   };
+
+  const placeProb = Math.random();
+
+  // every 20th record has death place filled
+  if (placeProb > 0.8) {
+    if (placeProb > 0.9) {
+      Death.death_cause = 'v řece Svitavě u Bilovic';
+    } else {
+      Death.death_cause = 'nemocnice';
+    }
+  }
+
+  // every 2nd record has death cause filled
+  const causeProb = Math.random();
+
+  if (causeProb > 0.5) {
+    if (causeProb > 0.9) {
+      Death.death_cause = 'osýpky';
+    } else if (causeProb > 0.7) {
+      Death.death_cause = 'souchotiny';
+    } else {
+      Death.death_cause = DEATH_CAUSES[deathCausesIndices.next().value];
+    }
+  }
+
+  // every 10th record has notes filled
+  const notesProb = Math.random();
+
+  if (notesProb > 0.9) {
+    Death.notes = 'chyba zápisu, prohozené rubriky';
+
+    if (notesProb > 0.95) {
+      Death.notes = 'poznámky...';
+    }
+  }
 
   // records either have death & funeral date or provision date
   if (Math.random() > 0.8) {
@@ -686,7 +744,7 @@ for (let i = 0; i < Math.min(deathsCount, deadPersons.length); i++) {
   }
 
   if (Death.inspection) {
-    Death.inspection_by = 'Doktor z hor'; // TODO JSON s random Doktormi?
+    Death.inspection_by = Math.random() > 0.6 ? 'Dr. Hrachovina' : 'Dr. Nováček';
   }
 
   deadPersonsBuffer.pop(); // pop last person who has record

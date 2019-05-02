@@ -175,9 +175,9 @@ interface Marriage {
     name?: string;
     normalized_name?: string;
     middle_names?: string[];
-    surname?: string; // TODO add to Rel
+    surname?: string;
     widowed?: boolean; // TODO add to Rel
-    from_marriage?: boolean;
+    from_marriage?: boolean; // TODO add to Rel
     address?: {
       village?: string;
       street?: string;
