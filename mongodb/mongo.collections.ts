@@ -1,7 +1,6 @@
 // WIP of collections overview as TypeScript interfaces
 
-interface Death {
-  _id_death: number;
+interface Death { // _id is generated ObjectId in MongoDb
   rec_ready?: boolean;
   rec_order?: number;
   scan_order?: number;
@@ -9,20 +8,16 @@ interface Death {
   provision_date?: Date;
   death_date?: Date;
   funeral_date?: Date;
-  death_village?: {
-    village?: string;
-    street?: string;
-    descr?: number;
-  };
+  death_village?: string;
+  death_street?: string;
+  death_descr?: string;
   place_funeral?: string;
   place_death?: string;
   widowed?: boolean;
-  age?: { // or Datetime ? TODO
-    years?: number;
-    months?: number;
-    days?: number;
-    hours?: number;
-  }
+  age_y: number;
+  age_m: number;
+  age_d: number;
+  age_h: number;
   death_cause?: string;
   inspection?: boolean; // or date? TODO
   inspection_by?: string; // for now only person name, can be Person
