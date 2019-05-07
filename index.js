@@ -20,6 +20,9 @@ const dateFns = require('date-fns');
 const randomDate = require('randomdate');
 const deepcopy = require('deepcopy');
 
+const MongoClient = require('mongodb').MongoClient;
+const assert = require('assert');
+
 // TODO discuss which should be used as optional arguments
 
 const usersCount = 2;
@@ -29,7 +32,7 @@ const signaturesCount = 15; // arg?
 
 const villagesCount = Math.min(VILLAGES.length, 15); // 15->arg?
 
-const personsCount = 50; // can get to + 6 due to kids, parents.. FIXME
+const personsCount = 8000; // can get to + 6 due to kids, parents.. FIXME
 const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 50); // 15->arg?;
 
 const directorsCount = 3;
@@ -751,11 +754,11 @@ for (let i = deadPersons.length; i > 0; i--) {
   }
 
   // records either have death & funeral date or provision date
-  if (Math.random() > 0.8) {
+  if (Math.random() > 0.7) {
     Death.provision_date = deathDate;
   } else {
     Death.death_date = deathDate;
-    Death.funeral_date = dateFns.format(dateFns.addDays(new Date(deathDate), Math.floor(Math.random() * 2 + 1)), 'YYYY-MM-DD');
+    Death.funeral_date = dateFns.format(dateFns.addDays(new Date(deathDate), 2), 'YYYY-MM-DD');
   }
 
   if (Death.inspection) {
@@ -771,22 +774,24 @@ for (let i = deadPersons.length; i > 0; i--) {
 fs.writeFileSync(MONGO_OUTPUT_FILE, '');
 
 /**********************Generate Marriage document collection for MongoDB**********************/
-let marriageDocuments = deepcopy(marriages);
 
-marriageDocuments.map(marriageRecord => {
+let marriagesBuf = deepcopy(marriages);
+let marriageDocuments = [];
+
+marriagesBuf.map(marriageRecord => {
   /********* Death Record attributes *********/
   let marriageDoc = {...marriageRecord};
 
   /********* ENTITIES connected to Death Record *********/
 
   /********* Register *********/
-  marriageDoc.register = registers.find(reg => reg._id_register === marriageRecord.register_id);
+  marriageDoc.register = {...registers.find(reg => reg._id_register === marriageRecord.register_id)};
 
   /********* User *********/
-  marriageDoc.user = users.find(usr => usr._id_user === marriageRecord.user_id);
+  marriageDoc.user = {...users.find(usr => usr._id_user === marriageRecord.user_id)};
 
   /********* Officiant *********/
-  marriageDoc.officiant = officiants.find(dir => dir._id_officiant === marriageRecord.officiant_id);
+  marriageDoc.officiant = {...officiants.find(dir => dir._id_officiant === marriageRecord.officiant_id)};
 
   const officiantNameRefs = officiantNames
     .filter(officiantName => officiantName.officiant_id === marriageRecord.officiant_id)
@@ -832,7 +837,7 @@ marriageDocuments.map(marriageRecord => {
         });
       }
 
-      const witnessPersonEntity = persons.find(person => person._id_person === witness.person_id);
+      const witnessPersonEntity = {...persons.find(person => person._id_person === witness.person_id)};
       witness = {...witness, ...witnessPersonEntity}; // attributes from Witness entity + Person entity
 
       marriageDoc.witnesses = [...marriageDoc.witnesses, witness];
@@ -840,7 +845,7 @@ marriageDocuments.map(marriageRecord => {
 
     /********* Groom & connected entities (parents) *********/
 
-    marriageDoc.groom = persons.find(person => person._id_person === marriageRecord.groom_id);
+    marriageDoc.groom = {...persons.find(person => person._id_person === marriageRecord.groom_id)};
 
     const groomNameRefs = personNames
       .filter(personName => personName.person_id === marriageRecord.groom_id)
@@ -871,7 +876,7 @@ marriageDocuments.map(marriageRecord => {
 
     /********* Groom's Father *********/
     if (marriageDoc.groom && marriageDoc.groom.father_id) {
-      marriageDoc.groom.father = persons.find(person => person._id_person === marriageDoc.groom.father_id);
+      marriageDoc.groom.father = {...persons.find(person => person._id_person === marriageDoc.groom.father_id)};
 
       if (marriageDoc.groom.father) {
         const fatherNameRefs = personNames
@@ -906,7 +911,7 @@ marriageDocuments.map(marriageRecord => {
 
     /********* Groom's Mother *********/
     if (marriageDoc.groom && marriageDoc.groom.mother_id) {
-      marriageDoc.groom.mother = persons.find(person => person._id_person === marriageDoc.groom.mother_id);
+      marriageDoc.groom.mother = {...persons.find(person => person._id_person === marriageDoc.groom.mother_id)};
 
       if (marriageDoc.groom.mother) {
         const motherNameRefs = personNames
@@ -942,7 +947,7 @@ marriageDocuments.map(marriageRecord => {
     /********* Bride & connected entities (parents) *********/
     // TODO add widow after entity :(
 
-    marriageDoc.bride = persons.find(person => person._id_person === marriageRecord.bride_id);
+    marriageDoc.bride = {...persons.find(person => person._id_person === marriageRecord.bride_id)};
 
     const brideNameRefs = personNames
       .filter(personName => personName.person_id === marriageRecord.bride_id)
@@ -973,7 +978,7 @@ marriageDocuments.map(marriageRecord => {
 
     /********* Bride's Father *********/
     if (marriageDoc.bride && marriageDoc.bride.father_id) {
-      marriageDoc.bride.father = persons.find(person => person._id_person === marriageDoc.bride.father_id);
+      marriageDoc.bride.father = {...persons.find(person => person._id_person === marriageDoc.bride.father_id)};
 
       if (marriageDoc.bride.father) {
         const fatherNameRefs = personNames
@@ -1008,69 +1013,66 @@ marriageDocuments.map(marriageRecord => {
 
     /********* Bride's Mother *********/
     if (marriageDoc.mother && marriageDoc.mother.mother_id) {
-      marriageDoc.mother.mother = persons.find(person => person._id_person === marriageDoc.mother.mother_id);
+      marriageDoc.bride.mother = {...persons.find(person => person._id_person === marriageDoc.mother.mother_id)};
 
-      if (marriageDoc.mother.mother) {
+      if (marriageDoc.bride.mother) {
         const motherNameRefs = personNames
-          .filter(personName => personName.person_id === marriageDoc.mother.mother._id_person)
+          .filter(personName => personName.person_id === marriageDoc.bride.mother._id_person)
           .map(personName => personName.name_id);
 
         // Father names entities
         const motherNameEntity = allNames.find(name => name._id_name === motherNameRefs[0]);
-        marriageDoc.mother.mother.name = motherNameEntity ? motherNameEntity.name : '';
+        marriageDoc.bride.mother.name = motherNameEntity ? motherNameEntity.name : '';
         // marriageDoc.mother.mother.name = allNames.find(name => name._id_name === motherNameRefs[0]).name;
 
         // For now only counting with max 2 names FIXME?
         if (motherNameRefs.length === 2) {
-          marriageDoc.mother.mother.middle_name = allNames.find(name => name._id_name === motherNameRefs[1]).name;
+          marriageDoc.bride.mother.middle_name = allNames.find(name => name._id_name === motherNameRefs[1]).name;
         }
 
         // Father occupations entities
         const motherOccupRefs = personOccupations
-          .filter(personOccup => personOccup.person_id === marriageDoc.mother.mother._id_person)
+          .filter(personOccup => personOccup.person_id === marriageDoc.bride.mother._id_person)
           .map(personOccup => personOccup.occup_id);
 
         if (motherOccupRefs.length > 0) {
-          marriageDoc.mother.mother.occupations = [];
+          marriageDoc.bride.mother.occupations = [];
 
           motherOccupRefs.map(ref => {
             const occupation = occupations.find(occup => occup._id_occup === ref);
-            marriageDoc.mother.mother.occupations = [...marriageDoc.mother.mother.occupations, occupation.name];
+            marriageDoc.bride.mother.occupations = [...marriageDoc.bride.mother.occupations, occupation.name];
           });
         }
       }
     }
   }
 
+  marriageDocuments = [...marriageDocuments, marriageDoc];
   // console.log('MERIDZ: ', marriageDoc);
   // mongoInsert('marriages', marriageDoc);
 });
 
+console.log('aaaaa', marriageDocuments[0]);
+
 /**********************Generate Death document collection for MongoDB**********************/
 
-fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
-  '--------------------------Deaths--------------------------\n',
-  'UTF-8',
-  {'flags': 'a+'}
-);
+let deathsBuf = deepcopy(deaths);
+let deathDocuments = [];
 
-let deathDocuments = deepcopy(deaths);
-
-deathDocuments.map(deathRecord => {
+deathsBuf.map(deathRecord => {
   /********* Death Record attributes *********/
   let deathDoc = {...deathRecord};
 
   /********* ENTITIES connected to Death Record *********/
 
   /********* Register *********/
-  deathDoc.register = registers.find(reg => reg._id_register === deathRecord.register_id);
+  deathDoc.register = {...registers.find(reg => reg._id_register === deathRecord.register_id)};
 
   /********* User *********/
-  deathDoc.user = users.find(usr => usr._id_user === deathRecord.user_id);
+  deathDoc.user = {...users.find(usr => usr._id_user === deathRecord.user_id)};
 
   /********* Director *********/
-  deathDoc.director = directors.find(dir => dir._id_director === deathRecord.director_id);
+  deathDoc.director = {...directors.find(dir => dir._id_director === deathRecord.director_id)};
 
   const dirNameRefs = directorNames
     .filter(dirName => dirName.director_id === deathRecord.director_id)
@@ -1079,7 +1081,7 @@ deathDocuments.map(deathRecord => {
   deathDoc.director.name = allNames.find(name => name._id_name === dirNameRefs[0]).name;
 
   /********* Celebrant *********/
-  deathDoc.celebrant = celebrants.find(cel => cel._id_celebrant === deathRecord.celebrant_id);
+  deathDoc.celebrant = {...celebrants.find(cel => cel._id_celebrant === deathRecord.celebrant_id)};
 
   const celNameRefs = celebrantNames
     .filter(celName => celName.celebrant_id === deathRecord.celebrant_id)
@@ -1088,7 +1090,7 @@ deathDocuments.map(deathRecord => {
   deathDoc.celebrant.name = allNames.find(name => name._id_name === celNameRefs[0]).name;
 
   /********* Dead person & connected entities (parents, bride/groom, kids) *********/
-  deathDoc.person = persons.find(person => person._id_person === deathRecord.person_id);
+  deathDoc.person = {...persons.find(person => person._id_person === deathRecord.person_id)};
 
   if (deathDoc.person) { // FIXME debug for delete Entity['attr'] - get rid of _id of records and entities and id_ of nested entities
     const personNameRefs = personNames
@@ -1119,7 +1121,7 @@ deathDocuments.map(deathRecord => {
     }
 
     /********* Dead person's Father *********/
-    deathDoc.father = persons.find(person => person._id_person === deathDoc.person.father_id);
+    deathDoc.father = {...persons.find(person => person._id_person === deathDoc.person.father_id)};
 
     if (deathDoc.father) {
       const fatherNameRefs = personNames
@@ -1152,7 +1154,7 @@ deathDocuments.map(deathRecord => {
     }
 
     /********* Dead person's Mother *********/
-    deathDoc.mother = persons.find(person => person._id_person === deathDoc.person.mother_id);
+    deathDoc.mother = {...persons.find(person => person._id_person === deathDoc.person.mother_id)};
 
     if (deathDoc.mother) {
       const motherNameRefs = personNames
@@ -1162,7 +1164,7 @@ deathDocuments.map(deathRecord => {
       // Mother name entity
       // women have only 1 name for simplicity
       const motherNameEntity = allNames.find(name => name._id_name === motherNameRefs[0]);
-      deathDoc.father.name = motherNameEntity ? motherNameEntity.name : '';
+      deathDoc.mother.name = motherNameEntity ? motherNameEntity.name : '';
       // deathDoc.mother.name = allNames.find(name => name._id_name === motherNameRefs[0]).name;
 
       // Mother occupations entities
@@ -1192,7 +1194,7 @@ deathDocuments.map(deathRecord => {
         ? marriages.find(mar => mar.groom_id === deathRecord.person_id).bride_id
         : marriages.find(mar => mar.bride_id === deathRecord.person_id).groom_id;
 
-      deathDoc.bride_groom = persons.find(person => person._id_person === brideGroomId);
+      deathDoc.bride_groom = {...persons.find(person => person._id_person === brideGroomId)};
 
       if (deathDoc.bride_groom) {
         const brideGroomNameRefs = personNames
@@ -1290,8 +1292,203 @@ deathDocuments.map(deathRecord => {
 
   // console.log(deathDoc);
 
-  mongoInsert('deaths', deathDoc);
+  deathDocuments = [...deathDocuments, deathDoc];
+
+  // mongoInsert('deaths', deathDoc);
 });
+
+// Connection URL
+const url = 'mongodb://localhost:27017';
+
+// Database Name
+const dbName = 'test';
+
+
+// Skipped indexes:
+//  - record: bride|groom months and days in age
+//  - bride, groom - sex
+//  - parents - sex, street, descr
+const marriageDocIndexes = [
+  {"rec_ready": 1},
+  {"rec_order": 1},
+  {"scan_order": 1},
+  {"scan_layout": 1},
+  {"date": 1},
+  {"village": 1},
+  {"groom_y": 1},
+  {"bride_y": 1},
+  {"bride_y": 1},
+  {"groom_adult": 1},
+  {"bride_adult": 1},
+  {"relationship": 1},
+  {"banns_1": 1},
+  {"banns_2": 1},
+  {"banns_3": 1},
+  {"register.archive": 1},
+  {"register.fond": 1},
+  {"register.signature": 1},
+  {"user.name": 1},
+  {"officiant.name": 1},
+  {"officiant.surname": 1},
+  {"officiant.title": 1},
+  {"witnesses.side": 1},
+  {"witnesses.relationship": 1},
+  // {"witnesses._id_person": 1}, // todo for all persons for easier updates ??
+  {"witnesses.name": 1},
+  {"witnesses.middle_name": 1},
+  {"witnesses.surname": 1},
+  {"witnesses.village": 1},
+  {"witnesses.occupations": 1},
+  {"witnesses.sex": 1},
+  {"witnesses.birth": 1},
+  {"witnesses.religion": 1},
+  {"groom.name": 1},
+  {"groom.middle_name": 1},
+  {"groom.surname": 1},
+  {"groom.village": 1},
+  {"groom.street": 1},
+  {"groom.descr": 1},
+  {"groom.occupations": 1},
+  {"groom.birth": 1},
+  {"groom.religion": 1},
+  {"groom.father.name": 1},
+  {"groom.father.middle_name": 1},
+  {"groom.father.surname": 1},
+  {"groom.father.village": 1},
+  {"groom.father.occupations": 1},
+  {"groom.father.birth": 1},
+  {"groom.father.religion": 1},
+  {"groom.mother.name": 1},
+  {"groom.mother.middle_name": 1},
+  {"groom.mother.surname": 1},
+  {"groom.mother.village": 1},
+  {"groom.mother.occupations": 1},
+  {"groom.mother.birth": 1},
+  {"groom.mother.religion": 1},
+  {"bride.name": 1},
+  {"bride.surname": 1},
+  {"bride.village": 1},
+  {"bride.street": 1},
+  {"bride.descr": 1},
+  {"bride.occupations": 1},
+  {"bride.birth": 1},
+  {"bride.religion": 1},
+  {"bride.father.name": 1},
+  {"bride.father.middle_name": 1},
+  {"bride.father.surname": 1},
+  {"bride.father.village": 1},
+  {"bride.father.occupations": 1},
+  {"bride.father.birth": 1},
+  {"bride.father.religion": 1},
+  {"bride.mother.name": 1},
+  {"bride.mother.middle_name": 1},
+  {"bride.mother.surname": 1},
+  {"bride.mother.village": 1},
+  {"bride.mother.occupations": 1},
+  {"bride.mother.birth": 1},
+  {"bride.mother.religion": 1},
+];
+
+// Skipped indexes:
+//  - record: age_m, age_d, notes;
+//  - mother, father, kids: street, descr and sex of mother and father
+const deathDocIndexes = [
+  {"rec_ready": 1},
+  {"rec_order": 1},
+  {"scan_order": 1},
+  {"scan_layout": 1},
+  {"death_village": 1},
+  {"death_street": 1},
+  {"death_descr": 1},
+  {"place_funeral": 1},
+  {"widowed": 1},
+  {"age_y": 1}, // create only index for years - should be enough for queries
+  {"inspection": 1},
+  {"death_cause": 1},
+  {"death_date": 1},
+  {"funeral_date": 1},
+  {"provision_date": 1},
+  {"inspection_by": 1},
+  {"place_death": 1},
+  {"register.archive": 1},
+  {"register.fond": 1},
+  {"register.signature": 1},
+  {"user.name": 1},
+  {"director.name": 1},
+  {"director.surname": 1},
+  {"director.title": 1},
+  {"celebrant.name": 1},
+  {"celebrant.surname": 1},
+  {"celebrant.title_occup": 1},
+  {"person.name": 1},
+  {"person.middle_name": 1}, // todo find all middle names and convert into name[]
+  {"person.surname": 1},
+  {"person.village": 1},
+  {"person.street": 1},
+  {"person.descr": 1},
+  {"person.birth": 1},
+  {"person.sex": 1},
+  {"person.religion": 1},
+  {"person.occupations": 1}, // indexed array
+  {"father.name": 1},
+  {"father.middle_name": 1},
+  {"father.surname": 1},
+  {"father.birth": 1},
+  {"father.village": 1}, // not indexing street, descr, birth, sex
+  {"father.religion": 1},
+  {"father.occupations": 1}, // indexed array
+  {"mother.name": 1},
+  {"mother.surname": 1},
+  {"mother.birth": 1},
+  {"mother.village": 1}, // not indexing street, descr, birth, sex
+  {"mother.religion": 1},
+  {"mother.occupations": 1}, // indexed array
+  {"bride_groom.name": 1},
+  {"bride_groom.surname": 1},
+  {"bride_groom.village": 1}, // not indexing street, descr, birth, sex
+  {"bride_groom.religion": 1},
+  {"bride_groom.occupations": 1}, // indexed array
+  {"kids.name": 1},
+  {"kids.surname": 1},
+  {"kids.birth": 1},
+  {"kids.sex": 1},
+  {"kids.village": 1}, // not indexing street, descr, birth
+  {"kids.religion": 1},
+  {"kids.occupations": 1}, // indexed array
+];
+
+// Use connect method to connect to the server
+MongoClient.connect(url, function(err, client) {
+  console.log("Connected successfully to server");
+
+  const db = client.db(dbName);
+
+  db.dropCollection('marriages'); // drop marriages collection if already exists
+  db.dropCollection('deaths'); // drop deaths collection if already exists
+
+  db.createCollection('marriages');
+  db.createCollection('deaths');
+
+  // create marriages collection indexes
+  marriageDocIndexes.map(idx => db.collection('marriages').createIndex(idx));
+  console.log(`Created ${marriageDocIndexes.length} documents into the marriages collection`);
+
+  // insert marriage documents
+  db.collection('marriages').insertMany(marriageDocuments);
+  console.log(`Inserted ${marriageDocuments.length} documents into the marriages collection`);
+
+  // create deaths collection indexes
+  deathDocIndexes.map(idx => db.collection('deaths').createIndex(idx));
+  console.log(`Created ${deathDocIndexes.length} documents into the deaths collection`);
+
+  // insert death documents
+  db.collection('deaths').insertMany(deathDocuments);
+  console.log(`Inserted ${deathDocuments.length} documents into the deaths collection`);
+
+  client.close();
+});
+
+console.log('asdf', deathDocuments[0]);
 
 console.log('Marriage records: ', marriages.length);
 console.log('Death records: ', deaths.length);
