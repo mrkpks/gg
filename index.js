@@ -1,65 +1,96 @@
+/*
+ *
+ * This script generates a specific testing dataset for comparison of PostgreSQL and MongoDB database systems
+ * The generated data is an interpretation of actual data stored as rewritten Vital Records
+ * analyzed from "Moravský zemský archiv (MZA) v Brně: fond E67 - Sbírka matrik"
+ *
+ * Author: Marek Pakes, xpakes00@stud.fit.vutbr.cz
+ * Created for Bachelor's thesis on topic "Porovnání relačních a dokumentových databázových systémů pro genealogické účely"
+ * Year: 2019
+ *
+ */
+// Files from ./data -> Most common names, surnames, villages, occupations in Czech republic
+// extracted from freely available data
+// *_TITLES & DEATH_CAUSES extracted from provided documents from MZA
 const VILLAGES = require('./data/towns.cz');
-
-const NAMES_ALL = require('./data/names.all');
 const NAMES_MEN = require('./data/names.men');
 const NAMES_WOMEN = require('./data/names.women');
-const SURNAMES_ALL = require('./data/surnames.all');
 const SURNAMES_MEN = require('./data/surnames.men');
 const SURNAMES_WOMEN = require('./data/surnames.women');
-
 const PERSON_OCCUPATIONS = require('./data/occupations');
 const DIRECTOR_TITLES = require('./data/director.titles');
 const CELEBRANT_TITLES = require('./data/celebrant.titles');
 const OFFICIANT_TITLES = require('./data/officiant.titles');
-
 const DEATH_CAUSES = require('./data/death.causes');
 
+// Node.js File System (to write into output files)
+// https://nodejs.org/api/fs.html
 const fs = require('fs');
+
+// Package for generating random names for Users + street & descr numbers for Persons
+// https://www.npmjs.com/package/faker
 const faker = require('faker');
+
+// Library for working with dates (adding, subtracting)
+// https://date-fns.org/
 const dateFns = require('date-fns');
+
+// Package for random date from interval of 2 dates
+// https://www.npmjs.com/package/randomdate
 const randomDate = require('randomdate');
+
+// Deep copy of nested objects
+// https://www.npmjs.com/package/deepcopy
 const deepcopy = require('deepcopy');
 
+// MongoDB Node.JS Driver
+// http://mongodb.github.io/node-mongodb-native/3.1/api/
 const MongoClient = require('mongodb').MongoClient;
-const assert = require('assert');
 
 // TODO discuss which should be used as optional arguments
 
+/*** Editable constants for modifying generated output ***/
 const usersCount = 2;
-const archivesCount = 2;
-const fondsCount = 3;
-const signaturesCount = 15; // arg?
+const archivesCount = 3; // number of generated unique archives
+const fondsCount = 5; // number of generated unique fonds inside an archive
+const signaturesCount = 15; // number of generated unique signatures inside of an archive fond
 
 const villagesCount = Math.min(VILLAGES.length, 15); // 15->arg?
 
-const personsCount = 8000; // can get to + 6 due to kids, parents.. FIXME
-const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 50); // 15->arg?;
+/*** IMPORTANT NOTE: ALL PERSONS -> not only brides + grooms + dead persons!! counting also parents and kids ***/
+// Number of unique persons
+// Due to randomness of generated kids + generating parents ratio of deaths & marriages to persons varies!
+// Ratio of persons to deaths is approx. 4:1
+// Ratio of persons to marriages is approx. 8:1
+// can get to +2 to +6 due to kids and parents
+const personsCount = 8000;
+const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 50); // number of unique occupations
 
-const directorsCount = 3;
-const celebrantsCount = 3;
-const officiantsCount = 3;
+const directorsCount = 3; // number of unique funeral directors ("Zaopatrovatel")
+const celebrantsCount = 3; // number of unique funeral celebrants ("Pohrbivajici")
+const officiantsCount = 3; // number of unique marriage officiants ("Oddavajici")
 
-const POSTGRES_OUTPUT_FILE = 'postgres/postgres.inserts.sql';
+const SQL_OUTPUT_FILE = 'postgres/inserts.sql'; // Usable for any SQL database
 const MONGO_OUTPUT_FILE = 'mongodb/mongo.inserts.js';
 
-faker.locale = 'cz';
+faker.locale = 'cz'; // set locale of helper package for generating streets of persons and names of users
 
 // Creates a SQL INSERT command to fill Postgres database
-// Appended output is written inside POSTGRES_OUTPUT_FILE
+// Appended output is written inside SQL_OUTPUT_FILE
 function sqlInsert(entityName, entity) {
   let columns = Object.keys(entity);
 
   let values = Object.values(entity).map(value => isNaN(value) ? `'${value}'` : value);
 
   fs.appendFileSync(
-    POSTGRES_OUTPUT_FILE,
+    SQL_OUTPUT_FILE,
     `INSERT INTO "${entityName}" (${columns}) VALUES (${values});\n`,
     'UTF-8',
     {'flags': 'a+'}
   );
 }
 
-// Creates a db.collection.insert(entity) command to fill MongoDB database
+// Creates a db.<collection>.insert(<entity>) command to fill MongoDB database
 // Appended output is written inside MONGO_OUTPUT_FILE
 function mongoInsert(collection, entity) {
   fs.appendFileSync(
@@ -71,7 +102,11 @@ function mongoInsert(collection, entity) {
 }
 
 // A random index iterator (remembers used values)
-// iteratorInstance.next() -> pushes next value from iterator
+// <iteratorInstance>.next() -> pushes next value to iterator
+// <iteratorInstance>.next().value -> picks next value (random index number)
+// Usage:
+// const desiredRandomIndices = randomIndexFrom(myArray.length); -> create iterator
+// let newRandomIndex = desiredRandomIndices.next().value;
 function* randomIndexFrom(length) {
   const indices = Array.from({length}, (_, i) => i)
     .sort(() => Math.random() - 0.5);
@@ -87,22 +122,11 @@ function* randomIndexFrom(length) {
   }
 }
 
-function cleanObject(obj) {
-  const propNames = Object.getOwnPropertyNames(obj);
-  for (let i = 0; i < propNames.length; i++) {
-    const propName = propNames[i];
-
-    if (obj[propName] === null || obj[propName] === undefined) {
-      delete obj[propName];
-    }
-  }
-}
-
-// create output file if doesn't exist or rewrite to empty
-fs.writeFileSync(POSTGRES_OUTPUT_FILE, '');
+// create new output file if doesn't exist or rewrite to empty
+fs.writeFileSync(SQL_OUTPUT_FILE, '');
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------User--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -121,7 +145,7 @@ for (let i = 0; i < usersCount; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------Register--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -134,7 +158,7 @@ for (let i = 0; i < archivesCount; i++) {
     for (let k = 0; k < signaturesCount; k++) {
       const Register = {
         _id_register: i * fondsCount * signaturesCount + j * signaturesCount + k,
-        archive: `AR${i}`,
+        archive: `ARCH${i}`,
         fond: `FOND${j}`,
         signature: k,
       };
@@ -146,7 +170,7 @@ for (let i = 0; i < archivesCount; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------Name--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -178,7 +202,7 @@ for (let i = 0; i < NAMES_WOMEN.length; i++) {
 const allNames = [...menNames, ...womenNames];
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------Occupation--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -197,7 +221,7 @@ for (let i = 0; i < occupationsCount; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------Director--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -221,7 +245,7 @@ for (let i = 0; i < directorsCount; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------DirectorName--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -241,7 +265,7 @@ for (let i = 0; i < directorsCount; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------Celebrant--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -263,7 +287,7 @@ for (let i = 0; i < celebrantsCount; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------CelebrantName--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -283,7 +307,7 @@ for (let i = 0; i < celebrantsCount; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------Officiant--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -305,7 +329,7 @@ for (let i = 0; i < officiantsCount; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------OfficiantName--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -325,7 +349,7 @@ for (let i = 0; i < officiantsCount; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------Person--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -444,7 +468,7 @@ for (let i = 0; i < personsCount;) { // incrementing takes place inside cycle fo
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------PersonName--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -478,7 +502,7 @@ for (let i = 0; i < persons.length; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------PersonOccupation--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -505,7 +529,7 @@ for (let i = 0; i < persons.length; i++) {
 }
 
 fs.appendFileSync(
-  POSTGRES_OUTPUT_FILE,
+  SQL_OUTPUT_FILE,
   '--------------------------Marriage--------------------------\n',
   'UTF-8',
   {'flags': 'a+'}
@@ -537,17 +561,19 @@ for (let i = 0; i < Math.floor(brides.length * 1.2); i++) {
 
   // // in case of too few persons (mostly less than 50), there is a chance, that groom filter will return an empty array
   // // because there are only women generated with both parents
-  // if (groom === undefined) {
-  //   break;
-  // }
+  if (groom === undefined) {
+    console.log('Groom is not defined');
+    break;
+  }
 
   const bride = brides[brideIndices.next().value];
 
   // // in case of too few persons (mostly less than 50), there is a chance, that bride filter will return an empty array
   // // because there are only men generated with both parents or a woman with surname not suitable for marriage
-  // if (bride === undefined) {
-  //   break;
-  // }
+  if (bride === undefined) {
+    console.log('Bride is not defined');
+    break;
+  }
 
   // random date between couple's age of 15 to 35
   const marriageDate = dateFns.format(
@@ -642,7 +668,7 @@ for (let i = 0; i < Math.floor(brides.length * 1.2); i++) {
 
   // Generating witnesses for each marriage inside of its cycle
   fs.appendFileSync(
-    POSTGRES_OUTPUT_FILE,
+    SQL_OUTPUT_FILE,
     '--------------------------Witness--------------------------\n',
     'UTF-8',
     {'flags': 'a+'}
@@ -665,11 +691,12 @@ for (let i = 0; i < Math.floor(brides.length * 1.2); i++) {
   }
 }
 
-// witnesses.map(witness => console.log(witness.marriage_id, witness.person_id));
-
-//
-// console.log('--------------------------Death--------------------------');
-//
+fs.appendFileSync(
+  SQL_OUTPUT_FILE,
+  '--------------------------Death--------------------------\n',
+  'UTF-8',
+  {'flags': 'a+'}
+);
 
 const celebrantsIndices = randomIndexFrom(celebrants.length);
 const directorsIndices = randomIndexFrom(directors.length);
@@ -1297,12 +1324,11 @@ deathsBuf.map(deathRecord => {
   // mongoInsert('deaths', deathDoc);
 });
 
-// Connection URL
-const url = 'mongodb://localhost:27017';
+// Connection URL for MongoDB
+const mongodbServerUrl = 'mongodb://localhost:27017';
 
 // Database Name
-const dbName = 'test';
-
+const mongodbName = 'test';
 
 // Skipped indexes:
 //  - record: bride|groom months and days in age
@@ -1421,7 +1447,7 @@ const deathDocIndexes = [
   {"celebrant.surname": 1},
   {"celebrant.title_occup": 1},
   {"person.name": 1},
-  {"person.middle_name": 1}, // todo find all middle names and convert into name[]
+  {"person.middle_name": 1}, // todo find all middle names and convert into name[] ? ? ?
   {"person.surname": 1},
   {"person.village": 1},
   {"person.street": 1},
@@ -1458,10 +1484,10 @@ const deathDocIndexes = [
 ];
 
 // Use connect method to connect to the server
-MongoClient.connect(url, function(err, client) {
+MongoClient.connect(mongodbServerUrl, function(err, client) {
   console.log("Connected successfully to server");
 
-  const db = client.db(dbName);
+  const db = client.db(mongodbName);
 
   db.dropCollection('marriages'); // drop marriages collection if already exists
   db.dropCollection('deaths'); // drop deaths collection if already exists
@@ -1488,9 +1514,8 @@ MongoClient.connect(url, function(err, client) {
   client.close();
 });
 
-console.log('asdf', deathDocuments[0]);
-
-console.log('Marriage records: ', marriages.length);
-console.log('Death records: ', deaths.length);
-console.log('Person records: ', persons.length);
+console.log('---------------SUMMARY---------------');
+console.log('Marriage records count: ', marriages.length);
+console.log('Death records count: ', deaths.length);
+console.log('Person records count: ', persons.length);
 console.log(new Date());
