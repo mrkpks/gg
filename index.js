@@ -47,6 +47,8 @@ const deepcopy = require('deepcopy');
 // http://mongodb.github.io/node-mongodb-native/3.1/api/
 const MongoClient = require('mongodb').MongoClient;
 
+const assert = require('assert'); // for testing connections
+
 // TODO discuss which should be used as optional arguments
 
 /*** Editable constants for modifying generated output ***/
@@ -57,13 +59,16 @@ const signaturesCount = 15; // number of generated unique signatures inside of a
 
 const villagesCount = Math.min(VILLAGES.length, 15); // 15->arg?
 
+const desiredMarriageRecordsCount = 10;
+const computedDeathRecordsCount = desiredMarriageRecordsCount * 2;
+
 /*** IMPORTANT NOTE: ALL PERSONS -> not only brides + grooms + dead persons!! counting also parents and kids ***/
 // Number of unique persons
 // Due to randomness of generated kids + generating parents ratio of deaths & marriages to persons varies!
 // Ratio of persons to deaths is approx. 4:1
 // Ratio of persons to marriages is approx. 8:1
 // can get to +2 to +6 due to kids and parents
-const personsCount = 8000;
+const personsCount = desiredMarriageRecordsCount * 8;
 const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 50); // number of unique occupations
 
 const directorsCount = 3; // number of unique funeral directors ("Zaopatrovatel")
@@ -1079,8 +1084,6 @@ marriagesBuf.map(marriageRecord => {
   // mongoInsert('marriages', marriageDoc);
 });
 
-console.log('aaaaa', marriageDocuments[0]);
-
 /**********************Generate Death document collection for MongoDB**********************/
 
 let deathsBuf = deepcopy(deaths);
@@ -1331,187 +1334,237 @@ const mongodbServerUrl = 'mongodb://localhost:27017';
 const mongodbName = 'test';
 
 // Skipped indexes:
-//  - record: bride|groom months and days in age
-//  - bride, groom - sex
 //  - parents - sex, street, descr
 const marriageDocIndexes = [
-  {"rec_ready": 1},
-  {"rec_order": 1},
-  {"scan_order": 1},
-  {"scan_layout": 1},
-  {"date": 1},
-  {"village": 1},
-  {"groom_y": 1},
-  {"bride_y": 1},
-  {"bride_y": 1},
-  {"groom_adult": 1},
-  {"bride_adult": 1},
-  {"relationship": 1},
-  {"banns_1": 1},
-  {"banns_2": 1},
-  {"banns_3": 1},
-  {"register.archive": 1},
-  {"register.fond": 1},
-  {"register.signature": 1},
-  {"user.name": 1},
-  {"officiant.name": 1},
-  {"officiant.surname": 1},
-  {"officiant.title": 1},
-  {"witnesses.side": 1},
-  {"witnesses.relationship": 1},
-  // {"witnesses._id_person": 1}, // todo for all persons for easier updates ??
-  {"witnesses.name": 1},
-  {"witnesses.middle_name": 1},
-  {"witnesses.surname": 1},
-  {"witnesses.village": 1},
-  {"witnesses.occupations": 1},
-  {"witnesses.sex": 1},
-  {"witnesses.birth": 1},
-  {"witnesses.religion": 1},
-  {"groom.name": 1},
-  {"groom.middle_name": 1},
-  {"groom.surname": 1},
-  {"groom.village": 1},
-  {"groom.street": 1},
-  {"groom.descr": 1},
-  {"groom.occupations": 1},
-  {"groom.birth": 1},
-  {"groom.religion": 1},
-  {"groom.father.name": 1},
-  {"groom.father.middle_name": 1},
-  {"groom.father.surname": 1},
-  {"groom.father.village": 1},
-  {"groom.father.occupations": 1},
-  {"groom.father.birth": 1},
-  {"groom.father.religion": 1},
-  {"groom.mother.name": 1},
-  {"groom.mother.middle_name": 1},
-  {"groom.mother.surname": 1},
-  {"groom.mother.village": 1},
-  {"groom.mother.occupations": 1},
-  {"groom.mother.birth": 1},
-  {"groom.mother.religion": 1},
-  {"bride.name": 1},
-  {"bride.surname": 1},
-  {"bride.village": 1},
-  {"bride.street": 1},
-  {"bride.descr": 1},
-  {"bride.occupations": 1},
-  {"bride.birth": 1},
-  {"bride.religion": 1},
-  {"bride.father.name": 1},
-  {"bride.father.middle_name": 1},
-  {"bride.father.surname": 1},
-  {"bride.father.village": 1},
-  {"bride.father.occupations": 1},
-  {"bride.father.birth": 1},
-  {"bride.father.religion": 1},
-  {"bride.mother.name": 1},
-  {"bride.mother.middle_name": 1},
-  {"bride.mother.surname": 1},
-  {"bride.mother.village": 1},
-  {"bride.mother.occupations": 1},
-  {"bride.mother.birth": 1},
-  {"bride.mother.religion": 1},
+  // {name: "rec_ready", key: {"rec_ready": 1}},
+  // {name: "rec_order", key: {"rec_order": 1}},
+  // {name: "scan_order", key: {"scan_order": 1}},
+  // {name: "scan_layout", key: {"scan_layout": 1}},
+  {name: "date", key: {"date": 1}},
+  {name: "village", key: {"village": 1}},
+  {name: "groom_y", key: {"groom_y": 1}},
+  // {name: "groom_m", key: {"groom_m": 1}},
+  // {name: "groom_d", key: {"groom_d": 1}},
+  {name: "bride_y", key: {"bride_y": 1}},
+  // {name: "bride_m", key: {"bride_m": 1}},
+  // {name: "bride_d", key: {"bride_d": 1}},
+  // {name: "groom_adult", key: {"groom_adult": 1}},
+  // {name: "bride_adult", key: {"bride_adult": 1}},
+  {name: "relationship", key: {"relationship": 1}},
+  {name: "banns_1", key: {"banns_1": 1}},
+  {name: "banns_2", key: {"banns_2": 1}},
+  {name: "banns_3", key: {"banns_3": 1}},
+  {name: "register.archive", key: {"register.archive": 1}},
+  {name: "register.fond", key: {"register.fond": 1}},
+  {name: "register.signature", key: {"register.signature": 1}},
+  // {name: "user.name", key: {"user.name": 1}},
+  // {name: "officiant.name", key: {"officiant.name": 1}},
+  {name: "officiant.surname", key: {"officiant.surname": 1}},
+  {name: "officiant.title", key: {"officiant.title": 1}},
+  {name: "witnesses.side", key: {"witnesses.side": 1}},
+  {name: "witnesses.relationship", key: {"witnesses.relationship": 1}},
+  {name: "witnesses.name", key: {"witnesses.name": 1}},
+  // {name: "witnesses.middle_name", key: {"witnesses.middle_name": 1}},
+  {name: "witnesses.surname", key: {"witnesses.surname": 1}},
+  {name: "witnesses.village", key: {"witnesses.village": 1}},
+  {name: "witnesses.occupations", key: {"witnesses.occupations": 1}},
+  {name: "witnesses.sex", key: {"witnesses.sex": 1}},
+  {name: "witnesses.birth", key: {"witnesses.birth": 1}},
+  {name: "witnesses.religion", key: {"witnesses.religion": 1}},
+  {name: "groom.name", key: {"groom.name": 1}},
+  // {name: "groom.middle_name", key: {"groom.middle_name": 1}},
+  {name: "groom.surname", key: {"groom.surname": 1}},
+  {name: "groom.village", key: {"groom.village": 1}},
+  // {name: "groom.street", key: {"groom.street": 1}},
+  // {name: "groom.descr", key: {"groom.descr": 1}},
+  {name: "groom.occupations", key: {"groom.occupations": 1}},
+  {name: "groom.birth", key: {"groom.birth": 1}},
+  {name: "groom.religion", key: {"groom.religion": 1}},
+  // {name: "groom.father.name", key: {"groom.father.name": 1}},
+  // {name: "groom.father.middle_name", key: {"groom.father.middle_name": 1}},
+  // {name: "groom.father.surname", key: {"groom.father.surname": 1}},
+  {name: "groom.father.village", key: {"groom.father.village": 1}},
+  // {name: "groom.father.occupations", key: {"groom.father.occupations": 1}},
+  {name: "groom.father.birth", key: {"groom.father.birth": 1}},
+  {name: "groom.father.religion", key: {"groom.father.religion": 1}},
+  // {name: "groom.mother.name", key: {"groom.mother.name": 1}},
+  // {name: "groom.mother.middle_name", key: {"groom.mother.middle_name": 1}},
+  // {name: "groom.mother.surname", key: {"groom.mother.surname": 1}},
+  {name: "groom.mother.village", key: {"groom.mother.village": 1}},
+  // {name: "groom.mother.occupations", key: {"groom.mother.occupations": 1}},
+  {name: "groom.mother.birth", key: {"groom.mother.birth": 1}},
+  {name: "groom.mother.religion", key: {"groom.mother.religion": 1}},
+  {name: "bride.name", key: {"bride.name": 1}},
+  {name: "bride.surname", key: {"bride.surname": 1}},
+  {name: "bride.village", key: {"bride.village": 1}},
+  // {name: "bride.street", key: {"bride.street": 1}},
+  // {name: "bride.descr", key: {"bride.descr": 1}},
+  {name: "bride.occupations", key: {"bride.occupations": 1}},
+  {name: "bride.birth", key: {"bride.birth": 1}},
+  {name: "bride.religion", key: {"bride.religion": 1}},
+  // {name: "bride.father.name", key: {"bride.father.name": 1}},
+  // {name: "bride.father.middle_name", key: {"bride.father.middle_name": 1}},
+  // {name: "bride.father.surname", key: {"bride.father.surname": 1}},
+  {name: "bride.father.village", key: {"bride.father.village": 1}},
+  // {name: "bride.father.occupations", key: {"bride.father.occupations": 1}},
+  {name: "bride.father.birth", key: {"bride.father.birth": 1}},
+  {name: "bride.father.religion", key: {"bride.father.religion": 1}},
+  // {name: "bride.mother.name", key: {"bride.mother.name": 1}},
+  // {name: "bride.mother.middle_name", key: {"bride.mother.middle_name": 1}},
+  // {name: "bride.mother.surname", key: {"bride.mother.surname": 1}},
+  {name: "bride.mother.village", key: {"bride.mother.village": 1}},
+  // {name: "bride.mother.occupations", key: {"bride.mother.occupations": 1}},
+  {name: "bride.mother.birth", key: {"bride.mother.birth": 1}},
+  {name: "bride.mother.religion", key: {"bride.mother.religion": 1}},
 ];
 
 // Skipped indexes:
 //  - record: age_m, age_d, notes;
 //  - mother, father, kids: street, descr and sex of mother and father
 const deathDocIndexes = [
-  {"rec_ready": 1},
-  {"rec_order": 1},
-  {"scan_order": 1},
-  {"scan_layout": 1},
-  {"death_village": 1},
-  {"death_street": 1},
-  {"death_descr": 1},
-  {"place_funeral": 1},
-  {"widowed": 1},
-  {"age_y": 1}, // create only index for years - should be enough for queries
-  {"inspection": 1},
-  {"death_cause": 1},
-  {"death_date": 1},
-  {"funeral_date": 1},
-  {"provision_date": 1},
-  {"inspection_by": 1},
-  {"place_death": 1},
-  {"register.archive": 1},
-  {"register.fond": 1},
-  {"register.signature": 1},
-  {"user.name": 1},
-  {"director.name": 1},
-  {"director.surname": 1},
-  {"director.title": 1},
-  {"celebrant.name": 1},
-  {"celebrant.surname": 1},
-  {"celebrant.title_occup": 1},
-  {"person.name": 1},
-  {"person.middle_name": 1}, // todo find all middle names and convert into name[] ? ? ?
-  {"person.surname": 1},
-  {"person.village": 1},
-  {"person.street": 1},
-  {"person.descr": 1},
-  {"person.birth": 1},
-  {"person.sex": 1},
-  {"person.religion": 1},
-  {"person.occupations": 1}, // indexed array
-  {"father.name": 1},
-  {"father.middle_name": 1},
-  {"father.surname": 1},
-  {"father.birth": 1},
-  {"father.village": 1}, // not indexing street, descr, birth, sex
-  {"father.religion": 1},
-  {"father.occupations": 1}, // indexed array
-  {"mother.name": 1},
-  {"mother.surname": 1},
-  {"mother.birth": 1},
-  {"mother.village": 1}, // not indexing street, descr, birth, sex
-  {"mother.religion": 1},
-  {"mother.occupations": 1}, // indexed array
-  {"bride_groom.name": 1},
-  {"bride_groom.surname": 1},
-  {"bride_groom.village": 1}, // not indexing street, descr, birth, sex
-  {"bride_groom.religion": 1},
-  {"bride_groom.occupations": 1}, // indexed array
-  {"kids.name": 1},
-  {"kids.surname": 1},
-  {"kids.birth": 1},
-  {"kids.sex": 1},
-  {"kids.village": 1}, // not indexing street, descr, birth
-  {"kids.religion": 1},
-  {"kids.occupations": 1}, // indexed array
+  // {name: "rec_ready", key: {"rec_ready": 1}},
+  // {name: "rec_order", key: {"rec_order": 1}},
+  // {name: "scan_order", key: {"scan_order": 1}},
+  // {name: "scan_layout", key: {"scan_layout": 1}},
+  {name: "death_village", key: {"death_village": 1}},
+  // {name: "death_street", key: {"death_street": 1}},
+  // {name: "death_descr", key: {"death_descr": 1}},
+  {name: "place_funeral", key: {"place_funeral": 1}},
+  {name: "widowed", key: {"widowed": 1}},
+  {name: "age_y", key: {"age_y": 1}}, // create only index for years - should be enough for queries
+  // {name: "age_m", key: {"age_m": 1}},
+  // {name: "age_d", key: {"age_d": 1}},
+  // {name: "age_h", key: {"age_h": 1}},
+  {name: "inspection", key: {"inspection": 1}},
+  {name: "death_cause", key: {"death_cause": 1}},
+  {name: "death_date", key: {"death_date": 1}},
+  {name: "funeral_date", key: {"funeral_date": 1}},
+  {name: "provision_date", key: {"provision_date": 1}},
+  // {name: "inspection_by", key: {"inspection_by": 1}},
+  {name: "place_death", key: {"place_death": 1}},
+  {name: "register.archive", key: {"register.archive": 1}},
+  {name: "register.fond", key: {"register.fond": 1}},
+  {name: "register.signature", key: {"register.signature": 1}},
+  // {name: "user.name", key: {"user.name": 1}},
+  // {name: "director.name", key: {"director.name": 1}},
+  {name: "director.surname", key: {"director.surname": 1}},
+  {name: "director.title", key: {"director.title": 1}},
+  // {name: "celebrant.name", key: {"celebrant.name": 1}},
+  {name: "celebrant.surname", key: {"celebrant.surname": 1}},
+  {name: "celebrant.title_occup", key: {"celebrant.title_occup": 1}},
+  {name: "person.name", key: {"person.name": 1}},
+  // {name: "person.middle_name", key: {"person.middle_name": 1}},
+  {name: "person.surname", key: {"person.surname": 1}},
+  {name: "person.village", key: {"person.village": 1}},
+  // {name: "person.street", key: {"person.street": 1}},
+  // {name: "person.descr", key: {"person.descr": 1}},
+  {name: "person.birth", key: {"person.birth": 1}},
+  {name: "person.sex", key: {"person.sex": 1}},
+  {name: "person.religion", key: {"person.religion": 1}},
+  {name: "person.occupations", key: {"person.occupations": 1}}, // indexed array
+  // {name: "father.name", key: {"father.name": 1}},
+  // {name: "father.middle_name", key: {"father.middle_name": 1}},
+  // {name: "father.surname", key: {"father.surname": 1}},
+  {name: "father.birth", key: {"father.birth": 1}},
+  {name: "father.village", key: {"father.village": 1}}, // not indexing street, descr, birth, sex
+  {name: "father.religion", key: {"father.religion": 1}},
+  // {name: "father.occupations", key: {"father.occupations": 1}}, // indexed array
+  // {name: "mother.name", key: {"mother.name": 1}},
+  // {name: "mother.surname", key: {"mother.surname": 1}},
+  {name: "mother.birth", key: {"mother.birth": 1}},
+  {name: "mother.village", key: {"mother.village": 1}}, // not indexing street, descr, birth, sex
+  {name: "mother.religion", key: {"mother.religion": 1}},
+  // {name: "mother.occupations", key: {"mother.occupations": 1}}, // indexed array
+  {name: "bride_groom.name", key: {"bride_groom.name": 1}},
+  {name: "bride_groom.surname", key: {"bride_groom.surname": 1}},
+  {name: "bride_groom.village", key: {"bride_groom.village": 1}}, // not indexing street, descr, birth, sex
+  {name: "bride_groom.religion", key: {"bride_groom.religion": 1}},
+  {name: "bride_groom.occupations", key: {"bride_groom.occupations": 1}}, // indexed array
+  // {name: "kids.name", key: {"kids.name": 1}},
+  {name: "kids.surname", key: {"kids.surname": 1}},
+  {name: "kids.birth", key: {"kids.birth": 1}},
+  {name: "kids.sex", key: {"kids.sex": 1}},
+  {name: "kids.village", key: {"kids.village": 1}}, // not indexing street, descr, birth
+  {name: "kids.religion", key: {"kids.religion": 1}},
+  {name: "kids.occupations", key: {"kids.occupations": 1}}, // indexed array
 ];
 
-// Use connect method to connect to the server
+const insertDeathDocuments = function(db, callback) {
+  // Insert some documents
+  db.collection('deaths').insertMany(deathDocuments, function(err, result) {
+    assert.equal(err, null);
+    assert.equal(deathDocuments.length, result.insertedCount);
+    console.log(`Inserted ${deathDocuments.length} documents into the deaths collection`);
+    callback(result);
+  });
+};
+
+const indexDeathsCollection = function(db, callback) {
+  db.collection('deaths').createIndexes(
+    deathDocIndexes,
+    null,
+    function(err, results) {
+      console.log(results);
+      callback();
+    }
+  );
+};
+
+const insertMarriageDocuments = function(db, callback) {
+  // Insert some documents
+  db.collection('marriages').insertMany(marriageDocuments, function(err, result) {
+    assert.equal(err, null);
+    assert.equal(marriageDocuments.length, result.insertedCount);
+    console.log(`Inserted ${marriageDocuments.length} documents into the marriages collection`);
+    callback(result);
+  });
+};
+
+const indexMarriagesCollection = function(db, callback) {
+  db.collection('marriages').createIndexes(
+    marriageDocIndexes,
+    null,
+    function(err, results) {
+      console.log(results);
+      callback();
+    }
+  );
+};
+
+// Use connect method to connect to the server and fill deaths collection
 MongoClient.connect(mongodbServerUrl, function(err, client) {
+  assert.equal(null, err);
+  console.log("Connected successfully to server");
+
+  const db = client.db(mongodbName);
+
+  db.dropCollection('deaths'); // drop deaths collection if already exists
+
+  insertDeathDocuments(db, function() {
+    indexDeathsCollection(db, function() {
+      client.close();
+    });
+  });
+
+  console.log(`Created ${deathDocIndexes.length} indexes in the deaths collection`);
+});
+
+// Use connect method to connect to the server and fill marriages collection
+MongoClient.connect(mongodbServerUrl, function(err, client) {
+  assert.equal(null, err);
   console.log("Connected successfully to server");
 
   const db = client.db(mongodbName);
 
   db.dropCollection('marriages'); // drop marriages collection if already exists
-  db.dropCollection('deaths'); // drop deaths collection if already exists
 
-  db.createCollection('marriages');
-  db.createCollection('deaths');
+  insertMarriageDocuments(db, function() {
+    indexMarriagesCollection(db, function() {
+      client.close();
+    });
+  });
 
-  // create marriages collection indexes
-  marriageDocIndexes.map(idx => db.collection('marriages').createIndex(idx));
-  console.log(`Created ${marriageDocIndexes.length} documents into the marriages collection`);
-
-  // insert marriage documents
-  db.collection('marriages').insertMany(marriageDocuments);
-  console.log(`Inserted ${marriageDocuments.length} documents into the marriages collection`);
-
-  // create deaths collection indexes
-  deathDocIndexes.map(idx => db.collection('deaths').createIndex(idx));
-  console.log(`Created ${deathDocIndexes.length} documents into the deaths collection`);
-
-  // insert death documents
-  db.collection('deaths').insertMany(deathDocuments);
-  console.log(`Inserted ${deathDocuments.length} documents into the deaths collection`);
-
-  client.close();
+  console.log(`Created ${marriageDocIndexes.length} indexes in the marriages collection`);
 });
 
 console.log('---------------SUMMARY---------------');
