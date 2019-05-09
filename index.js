@@ -38,10 +38,6 @@ const faker = require('faker');
 // https://date-fns.org/
 const dateFns = require('date-fns');
 
-// Deep copy of nested objects
-// https://www.npmjs.com/package/deepcopy
-const deepcopy = require('deepcopy');
-
 // MongoDB Node.JS Driver
 // http://mongodb.github.io/node-mongodb-native/3.1/api/
 const MongoClient = require('mongodb').MongoClient;
