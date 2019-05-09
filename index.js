@@ -49,8 +49,6 @@ const MongoClient = require('mongodb').MongoClient;
 
 const assert = require('assert'); // for testing connections
 
-// TODO discuss which should be used as optional arguments
-
 /*** Editable constants for modifying generated output ***/
 const usersCount = 2;
 const archivesCount = 3; // number of generated unique archives
@@ -59,7 +57,7 @@ const signaturesCount = 15; // number of generated unique signatures inside of a
 
 const villagesCount = Math.min(VILLAGES.length, 15); // 15->arg?
 
-const desiredMarriageRecordsCount = 10;
+const desiredMarriageRecordsCount = 33;
 const computedDeathRecordsCount = desiredMarriageRecordsCount * 2;
 
 /*** IMPORTANT NOTE: ALL PERSONS -> not only brides + grooms + dead persons!! counting also parents and kids ***/
@@ -68,7 +66,7 @@ const computedDeathRecordsCount = desiredMarriageRecordsCount * 2;
 // Ratio of persons to deaths is approx. 4:1
 // Ratio of persons to marriages is approx. 8:1
 // can get to +2 to +6 due to kids and parents
-const personsCount = desiredMarriageRecordsCount * 8;
+const recordPersonsCount = desiredMarriageRecordsCount * 8;
 const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 50); // number of unique occupations
 
 const directorsCount = 3; // number of unique funeral directors ("Zaopatrovatel")
@@ -76,9 +74,30 @@ const celebrantsCount = 3; // number of unique funeral celebrants ("Pohrbivajici
 const officiantsCount = 3; // number of unique marriage officiants ("Oddavajici")
 
 const SQL_OUTPUT_FILE = 'postgres/inserts.sql'; // Usable for any SQL database
-const MONGO_OUTPUT_FILE = 'mongodb/mongo.inserts.js';
 
 faker.locale = 'cz'; // set locale of helper package for generating streets of persons and names of users
+
+// const { Client } = require('pg');
+//
+// const postgresClient = new Client({
+//   user: 'postgres',
+//   password: '1234',
+//   database: 'postgres',
+//   port: 5432,
+// });
+// postgresClient.connect((err) => {
+//   if (err) {
+//     console.error('connection error', err.stack);
+//   } else {
+//     console.log('connected to PostgreSQL server');
+//   }
+// });
+
+
+// postgresClient.query('SELECT * FROM "Death";', (err, res) => {
+//   console.log(err ? err.stack : res.rows[0]);
+//   postgresClient.end();
+// });
 
 // Creates a SQL INSERT command to fill Postgres database
 // Appended output is written inside SQL_OUTPUT_FILE
@@ -87,20 +106,14 @@ function sqlInsert(entityName, entity) {
 
   let values = Object.values(entity).map(value => isNaN(value) ? `'${value}'` : value);
 
+  // postgresClient.query(`INSERT INTO "${entityName}" (${columns}) VALUES (${values});`, (err, res) => {
+  //   console.log(err ? err.stack : res.rows[0]);
+  //   // postgresClient.end();
+  // });
+
   fs.appendFileSync(
     SQL_OUTPUT_FILE,
     `INSERT INTO "${entityName}" (${columns}) VALUES (${values});\n`,
-    'UTF-8',
-    {'flags': 'a+'}
-  );
-}
-
-// Creates a db.<collection>.insert(<entity>) command to fill MongoDB database
-// Appended output is written inside MONGO_OUTPUT_FILE
-function mongoInsert(collection, entity) {
-  fs.appendFileSync(
-    MONGO_OUTPUT_FILE,
-    `db.${collection}.insert(${JSON.stringify(entity)})\n`,
     'UTF-8',
     {'flags': 'a+'}
   );
@@ -370,7 +383,7 @@ let persons = [];
 
 const personVillageIndices = randomIndexFrom(villagesCount);
 
-for (let i = 0; i < personsCount;) { // incrementing takes place inside cycle for each person
+for (let i = 0; i < recordPersonsCount;) { // incrementing takes place inside cycle for each person
 
   const [descr, street] = faker.fake("{{address.streetAddress}}").split(' ');
   const personSex = Math.random() > 0.5 ? 'muž' : 'žena';
@@ -561,24 +574,8 @@ const brideIndices = randomIndexFrom(brides.length);
 // added 20% so some people will have more than 1 wedding records
 for (let i = 0; i < Math.floor(brides.length * 1.2); i++) {
   const marriageVillageIndices = randomIndexFrom(villagesCount);
-
   const groom = grooms[groomIndices.next().value];
-
-  // // in case of too few persons (mostly less than 50), there is a chance, that groom filter will return an empty array
-  // // because there are only women generated with both parents
-  if (groom === undefined) {
-    console.log('Groom is not defined');
-    break;
-  }
-
   const bride = brides[brideIndices.next().value];
-
-  // // in case of too few persons (mostly less than 50), there is a chance, that bride filter will return an empty array
-  // // because there are only men generated with both parents or a woman with surname not suitable for marriage
-  if (bride === undefined) {
-    console.log('Bride is not defined');
-    break;
-  }
 
   // random date between couple's age of 15 to 35
   const marriageDate = dateFns.format(
@@ -801,9 +798,6 @@ for (let i = deadPersons.length; i > 0; i--) {
   deaths = [...deaths, Death];
   sqlInsert('Death', Death);
 }
-
-// create output file if doesn't exist or rewrite to empty
-fs.writeFileSync(MONGO_OUTPUT_FILE, '');
 
 /**********************Generate Marriage document collection for MongoDB**********************/
 
@@ -1080,9 +1074,8 @@ marriagesBuf.map(marriageRecord => {
   }
 
   marriageDocuments = [...marriageDocuments, marriageDoc];
-  // console.log('MERIDZ: ', marriageDoc);
-  // mongoInsert('marriages', marriageDoc);
 });
+
 
 /**********************Generate Death document collection for MongoDB**********************/
 
@@ -1318,13 +1311,10 @@ deathsBuf.map(deathRecord => {
   // delete deathDoc['user_id'];
   // delete deathDoc['celebrant_id'];
   // delete deathDoc['director_id'];
-  // TODO delete nested IDs
+  // TODO delete nested IDs?
 
-  // console.log(deathDoc);
 
   deathDocuments = [...deathDocuments, deathDoc];
-
-  // mongoInsert('deaths', deathDoc);
 });
 
 // Connection URL for MongoDB
@@ -1531,41 +1521,41 @@ const indexMarriagesCollection = function(db, callback) {
   );
 };
 
-// Use connect method to connect to the server and fill deaths collection
-MongoClient.connect(mongodbServerUrl, function(err, client) {
-  assert.equal(null, err);
-  console.log("Connected successfully to server");
-
-  const db = client.db(mongodbName);
-
-  db.dropCollection('deaths'); // drop deaths collection if already exists
-
-  insertDeathDocuments(db, function() {
-    indexDeathsCollection(db, function() {
-      client.close();
-    });
-  });
-
-  console.log(`Created ${deathDocIndexes.length} indexes in the deaths collection`);
-});
-
-// Use connect method to connect to the server and fill marriages collection
-MongoClient.connect(mongodbServerUrl, function(err, client) {
-  assert.equal(null, err);
-  console.log("Connected successfully to server");
-
-  const db = client.db(mongodbName);
-
-  db.dropCollection('marriages'); // drop marriages collection if already exists
-
-  insertMarriageDocuments(db, function() {
-    indexMarriagesCollection(db, function() {
-      client.close();
-    });
-  });
-
-  console.log(`Created ${marriageDocIndexes.length} indexes in the marriages collection`);
-});
+// // Use connect method to connect to the server and fill deaths collection
+// MongoClient.connect(mongodbServerUrl, function(err, client) {
+//   assert.equal(null, err);
+//   console.log("Connected successfully to server");
+//
+//   const db = client.db(mongodbName);
+//
+//   db.dropCollection('deaths'); // drop deaths collection if already exists
+//
+//   insertDeathDocuments(db, function() {
+//     indexDeathsCollection(db, function() {
+//       client.close();
+//     });
+//   });
+//
+//   console.log(`Created ${deathDocIndexes.length} indexes in the deaths collection`);
+// });
+//
+// // Use connect method to connect to the server and fill marriages collection
+// MongoClient.connect(mongodbServerUrl, function(err, client) {
+//   assert.equal(null, err);
+//   console.log("Connected successfully to server");
+//
+//   const db = client.db(mongodbName);
+//
+//   db.dropCollection('marriages'); // drop marriages collection if already exists
+//
+//   insertMarriageDocuments(db, function() {
+//     indexMarriagesCollection(db, function() {
+//       client.close();
+//     });
+//   });
+//
+//   console.log(`Created ${marriageDocIndexes.length} indexes in the marriages collection`);
+// });
 
 console.log('---------------SUMMARY---------------');
 console.log('Marriage records count: ', marriages.length);
