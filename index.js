@@ -10,7 +10,8 @@
  *
  */
 
-console.log('Started at: ',new Date());
+const startedGeneratingAt = new Date();
+console.log('Started at: ', startedGeneratingAt);
 
 // Files from ./data -> Most common names, surnames, villages, occupations in Czech republic
 // extracted from freely available data
@@ -52,7 +53,7 @@ const signaturesCount = 15; // number of generated unique signatures inside of a
 
 const villagesCount = Math.min(VILLAGES.length, 15); // 15->arg?
 
-const desiredMarriageRecordsCount = 33;
+const desiredMarriageRecordsCount = 33333;
 const computedDeathRecordsCount = desiredMarriageRecordsCount * 2;
 
 /*** IMPORTANT NOTE: ALL PERSONS -> not only brides + grooms + dead persons!! counting also parents and kids ***/
@@ -1223,12 +1224,6 @@ deaths.map(deathRecord => {
   deathDocuments = [...deathDocuments, deathDoc];
 });
 
-// Connection URL for MongoDB
-const mongodbServerUrl = 'mongodb://localhost:27017';
-
-// Database Name
-const mongodbName = 'test';
-
 // NOTE: MAX 64 INDEXES SUPPORTED PER COLLECTION
 // - index only those attributes that will be potentially queried
 const marriageDocIndexes = [
@@ -1403,9 +1398,16 @@ const deathDocIndexes = [
   // {name: "kids.occupations", key: {"kids.occupations": 1}},
 ];
 
+// save finish time of data generating
+const finishedGeneratingAt = new Date();
+
 const insertDeathDocuments = function(db, callback) {
   // Insert some documents
+  const insertStart = new Date();
   db.collection('deaths').insertMany(deathDocuments, function(err, result) {
+    console.log(
+      `MongoDB: ${deathDocuments.length} documents inserted in ${dateFns.differenceInMilliseconds(new Date(), insertStart)}ms`
+    );
     assert.equal(err, null);
     assert.equal(deathDocuments.length, result.insertedCount);
     console.log(`MongoDB: Inserted ${deathDocuments.length} documents into the deaths collection`);
@@ -1426,7 +1428,11 @@ const indexDeathsCollection = function(db, callback) {
 
 const insertMarriageDocuments = function(db, callback) {
   // Insert some documents
+  const insertStart = new Date();
   db.collection('marriages').insertMany(marriageDocuments, function(err, result) {
+    console.log(
+      `MongoDB: ${marriageDocuments.length} documents inserted in ${dateFns.differenceInMilliseconds(new Date(), insertStart)}ms`
+    );
     assert.equal(err, null);
     assert.equal(marriageDocuments.length, result.insertedCount);
     console.log(`MongoDB: Inserted ${marriageDocuments.length} documents into the marriages collection`);
@@ -1448,6 +1454,12 @@ const indexMarriagesCollection = function(db, callback) {
 
 /*** Insert new testing dataset into MongoDB database ***/
 
+// Connection URL for MongoDB
+const mongodbServerUrl = 'mongodb://localhost:27017';
+
+// Database Name
+const mongodbName = 'test';
+
 // Use connect method to connect to the server and fill deaths collection
 MongoClient.connect(mongodbServerUrl, { useNewUrlParser: true }, function(err, client) {
   assert.equal(null, err);
@@ -1461,9 +1473,8 @@ MongoClient.connect(mongodbServerUrl, { useNewUrlParser: true }, function(err, c
     indexDeathsCollection(db, function() {
       client.close();
     });
+    // client.close();
   });
-
-  console.log(`MongoDB: Created ${deathDocIndexes.length} indexes in the deaths collection`);
 });
 
 // Use connect method to connect to the server and fill marriages collection
@@ -1479,9 +1490,8 @@ MongoClient.connect(mongodbServerUrl, { useNewUrlParser: true }, function(err, c
     indexMarriagesCollection(db, function() {
       client.close();
     });
+    // client.close();
   });
-
-  console.log(`MongoDB: Created ${marriageDocIndexes.length} indexes in the marriages collection`);
 });
 
 /*** Insert new testing dataset into PostgreSQL database ***/
@@ -1519,10 +1529,18 @@ fs.readFile(
           postgresClient.query(tablesToCreate)
             .then(() => {
               console.log('PostgreSQL: succesfully created all tables!');
-
               // insert new data into postgres database
+              const allInsertsCount =
+                celebrants.length + celebrantNames.length + deaths.length + directors.length
+                + directorNames.length + marriages.length + allNames.length + occupations.length
+                + officiants.length + officiantNames.length + persons.length + personNames.length
+                + personOccupations.length + registers.length + users.length + witnesses.length;
+              const insertStart = new Date();
               postgresClient.query(sqlInserts)
                 .then(() => {
+                  console.log(
+                    `PostgreSQL: ${allInsertsCount} records inserted in ${dateFns.differenceInMilliseconds(new Date(), insertStart)}ms`
+                  );
                   console.log('PostgreSQL: succesfully inserted new testing dataset!');
                   console.log('PostgreSQL: disconnecting...');
                   postgresClient.end(); // end connection after everything inserted correctly
@@ -1549,4 +1567,5 @@ console.log('---------------SUMMARY---------------');
 console.log('Marriage records count: ', marriages.length);
 console.log('Death records count: ', deaths.length);
 console.log('Person records count: ', persons.length);
-console.log('Finished at: ',new Date());
+console.log('Finished at: ', finishedGeneratingAt);
+console.log(`TIME TO GENERATE ALL RECORDS AND DOCUMENTS: ${dateFns.differenceInMilliseconds(new Date(), startedGeneratingAt)}ms`, );
