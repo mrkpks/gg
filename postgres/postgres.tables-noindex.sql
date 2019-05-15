@@ -139,5 +139,3 @@ CREATE TABLE "PersonName" (
   "name_id" int,
   "person_id" int
 );
-
-

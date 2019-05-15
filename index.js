@@ -62,21 +62,16 @@ let recordsCount = 1000; // ("Death" table + "Marriage" table entities count)
 let createIndexes = true;
 
 const args = require('minimist')(process.argv.slice(2));
-console.log(args);
-console.log(args.i);
 
 Object.keys(args).map(key => {
   if (key === 'createIndexes') {
     createIndexes = args['createIndexes'];
-    console.log('createIndexes ', createIndexes);
   }
 
   if (key === 'recordsCount') {
     recordsCount = args['recordsCount'];
-    console.log('recordsCount ', recordsCount);
   }
 });
-
 
 const computedMarriageRecordsCount = Math.floor(recordsCount / 3); // ("Marriage" table entities count)
 
@@ -93,7 +88,9 @@ const recordPersonsCount = computedMarriageRecordsCount * 8; // ("Person" table 
 const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 50); // number of unique occupations ("Occupation" table entities count)
 
 const SQL_OUTPUT_FILE = 'output/inserts.sql'; // Usable for any SQL database
-const POSTGRES_TABLES = createIndexes ? 'postgres/postgres.tables.sql' : 'postgres/postgres.tables-noindex.sql'; // For tables to create on db connect
+const POSTGRES_TABLES = createIndexes === false || createIndexes === 'false' // For tables to create on db connect
+  ? 'postgres/postgres.tables-noindex.sql' // Create without indexes
+  : 'postgres/postgres.tables.sql'; // Create with indexes
 
 faker.locale = 'cz'; // set locale of helper package for generating streets of persons and names of users
 
