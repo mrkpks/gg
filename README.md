@@ -1,31 +1,52 @@
 # gg
-gg - "genealogy generator" je *nodejs* skript, ktorý slúži na vygenerovanie dát pre oddacie a úmrtné matričné záznamy, ktoré slúžia ako testovacia sada pre porovnanie vhodnosti ukladania týchto záznamov v PostgreSQL a MongoDB.
+gg - "genealogy generator" is a *nodejs* script which generates testing data of vital records (marriage and death certificates). The dataset is used for comparison of PostgreSQL and MongoDB databases.
 
-Skript bol vytvorený ako pomôcka pre bakalársku prácu
+This repository and script were made as a part of work on a bachelor's thesis: "Comparison of Relational and Document Database Systems (for genealogy)".
 
 ---
 
-### Autor 
+### Author 
 Marek Pakes, xpakes00@stud.fit.vutbr.cz
 
 - [GitHub](https://github.com/mrkpks/gg)
 
-## Spustenie
+#### Before running script: 
 
-Pre spustenie je nutné mať nainštalovaný nodejs: https://www.npmjs.com/get-npm
+- install Node.JS https://nodejs.org/en/
+- install MongoDB: https://www.mongodb.com/download-center/community
+- install PostgreSQL: https://www.postgresql.org/download/
 
-Kroky pre spustenie:
+- fill in credentials for MongoDB into `gg/mongodb/credentials.json`
+- fill in credentials for PostgreSQL into `gg/postgres/credentials.json`
 
-- `cd gg` - adresár skriptu
-- `npm install` - nainštaluje potrebné závislosti
-- `npm start` - spustenie skriptu
+#### Steps to run script:
 
-## Testovanie
+- `$ cd gg` - script directory
+- `$ npm install` - install dependencies
+- `$ npm start` or `npm run generate` - run generator
+
+#### Optional arguments:
+
+- `--createIndexes=<true|false>` - vytvorí/nevytvorí indexy v databázach
+
+- `--recordsCount=<number>` - počet požadovaných matričných záznamov. Implicitne 1000.
+
+Example: 
+`$ npm start -- --records=10000 --createIndexes=false`
+
+### Queries testing
 
 #### PostgreSQL
+2 ways to test queries in PostgreSQL
+ - GUI: `pgAdmin 4` with Query tool
+ - CLI: `psql` run `$ psql -U postgres postgres` (for default username and database name)
 
-- _postgres/postgres.tables.sql_ - CREATE príkazy pre vytvorenie tabuliek
 
-- _postgres/postgres.inserts.sql_ - INSERT príkazy pre naplnenie databázy
-
-- _postgres/postgres.queries.sql_ - testovacie príkazy
+#### MongoDB
+2 ways to test queries in MongoDB
+ - GUI: `MongoDB Compass`
+ - CLI: `mongod` (server), `mongo` (client)
+ 
+NOTE: MongoDB Compass does not show the full query time!!!
+ - use `gg/mongotest.js` for the database querying to show exact time of the query
+ - edit highlighted code for your query

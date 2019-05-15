@@ -4,10 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "generate-data": "node index.js",
+    "testmongo": "node mongotest.js"
   },
   "author": "Marek Pakes",
-  "license": "ISC",
+  "license": "GNU GPL",
   "repository": {
     "type": "git",
     "url": "git://github.com/mrkpks/gg.git"

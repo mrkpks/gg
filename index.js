@@ -26,6 +26,7 @@ const DIRECTOR_TITLES = require('./data/director.titles');
 const CELEBRANT_TITLES = require('./data/celebrant.titles');
 const OFFICIANT_TITLES = require('./data/officiant.titles');
 const DEATH_CAUSES = require('./data/death.causes');
+const POSTGRES_CREDENTIALS = require('./postgres/credentials');
 
 // Node.js File System (to write into output files)
 // https://nodejs.org/api/fs.html
@@ -45,32 +46,54 @@ const MongoClient = require('mongodb').MongoClient;
 
 const assert = require('assert'); // for testing connections
 
-/*** Editable constants for modifying generated output ***/
-const usersCount = 2;
+const usersCount = 2; // number of users ("User" table)
+// Registers count = archivesCount * fondsCount * signaturesCount ("Register" table entities count)
 const archivesCount = 3; // number of generated unique archives
 const fondsCount = 5; // number of generated unique fonds inside an archive
 const signaturesCount = 15; // number of generated unique signatures inside of an archive fond
+const directorsCount = 3; // number of unique funeral directors ("Director" table entities count)
+const celebrantsCount = 3; // number of unique funeral celebrants ("Celebrant" table entities count)
+const officiantsCount = 3; // number of unique marriage officiants ("Officiant" table entities count)
 
-const villagesCount = Math.min(VILLAGES.length, 15); // 15->arg?
+const villagesCount = Math.min(VILLAGES.length, 15);
 
-const desiredMarriageRecordsCount = 33333;
-const computedDeathRecordsCount = desiredMarriageRecordsCount * 2;
+/*** Parse args ***/
+let recordsCount = 1000; // ("Death" table + "Marriage" table entities count)
+let createIndexes = true;
 
-/*** IMPORTANT NOTE: ALL PERSONS -> not only brides + grooms + dead persons!! counting also parents and kids ***/
+const args = require('minimist')(process.argv.slice(2));
+console.log(args);
+console.log(args.i);
+
+Object.keys(args).map(key => {
+  if (key === 'createIndexes') {
+    createIndexes = args['createIndexes'];
+    console.log('createIndexes ', createIndexes);
+  }
+
+  if (key === 'recordsCount') {
+    recordsCount = args['recordsCount'];
+    console.log('recordsCount ', recordsCount);
+  }
+});
+
+
+const computedMarriageRecordsCount = Math.floor(recordsCount / 3); // ("Marriage" table entities count)
+
+/***
+ * IMPORTANT NOTE: ALL PERSONS -> not only brides, grooms (+ these will eventually be deceased).
+ * Counting also parents and kids
+ * ***/
 // Number of unique persons
 // Due to randomness of generated kids + generating parents ratio of deaths & marriages to persons varies!
 // Ratio of persons to deaths is approx. 4:1
 // Ratio of persons to marriages is approx. 8:1
 // can get to +2 to +6 due to kids and parents
-const recordPersonsCount = desiredMarriageRecordsCount * 8;
-const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 50); // number of unique occupations
-
-const directorsCount = 3; // number of unique funeral directors ("Zaopatrovatel")
-const celebrantsCount = 3; // number of unique funeral celebrants ("Pohrbivajici")
-const officiantsCount = 3; // number of unique marriage officiants ("Oddavajici")
+const recordPersonsCount = computedMarriageRecordsCount * 8; // ("Person" table entities count)
+const occupationsCount = Math.min(PERSON_OCCUPATIONS.length, 50); // number of unique occupations ("Occupation" table entities count)
 
 const SQL_OUTPUT_FILE = 'output/inserts.sql'; // Usable for any SQL database
-const POSTGRES_TABLES = 'postgres/postgres.tables.sql'; // For tables to create on db connect
+const POSTGRES_TABLES = createIndexes ? 'postgres/postgres.tables.sql' : 'postgres/postgres.tables-noindex.sql'; // For tables to create on db connect
 
 faker.locale = 'cz'; // set locale of helper package for generating streets of persons and names of users
 
@@ -303,7 +326,7 @@ const personWomanSurnames = SURNAMES_WOMEN.map(sur => sur).sort(() => Math.rando
 const personWomanIndices = randomIndexFrom(personWomanSurnames.length);
 
 let persons = [];
-
+console.log('Person entities', new Date());
 const personVillageIndices = randomIndexFrom(villagesCount);
 
 for (let i = 0; i < recordPersonsCount;) { // incrementing takes place inside cycle for each person
@@ -408,6 +431,7 @@ for (let i = 0; i < recordPersonsCount;) { // incrementing takes place inside cy
   }
 }
 
+console.log('PersonName entities', new Date());
 // create PersonName table inserts
 let personNames = [];
 const menNameIndices = randomIndexFrom(NAMES_MEN.length);
@@ -436,6 +460,7 @@ for (let i = 0; i < persons.length; i++) {
   sqlInsert('PersonName', PersonName);
 }
 
+console.log('PersonOccupation entities', new Date());
 // create PersonOccupation table inserts
 let personOccupations = [];
 
@@ -465,10 +490,12 @@ const officiantsIndices = randomIndexFrom(officiants.length);
 const marriageRegistersIndices = randomIndexFrom(registers.length);
 const marriageUsersIndices = randomIndexFrom(users.length);
 
+console.log('grooms', new Date());
 const grooms = persons
   .filter(person => person.sex === 'muž' && person.mother_id && person.father_id)
   .sort(() => Math.random() - 0.5);
 
+console.log('brides', new Date());
 const brides = persons
   .filter(person => person.sex === 'žena' && person.mother_id && person.father_id)
   .sort(() => Math.random() - 0.5);
@@ -476,6 +503,8 @@ const brides = persons
 const groomIndices = randomIndexFrom(grooms.length);
 const brideIndices = randomIndexFrom(brides.length);
 
+
+console.log('Marriage entities', new Date());
 // added 20% so some people will have more than 1 wedding records
 for (let i = 0; i < Math.floor(brides.length * 1.2); i++) {
   const marriageVillageIndices = randomIndexFrom(villagesCount);
@@ -600,9 +629,11 @@ const deathUsersIndices = randomIndexFrom(users.length);
 const deathCausesIndices = randomIndexFrom(DEATH_CAUSES.length);
 let deaths = [];
 
+console.log('deadpersons', new Date());
 // create a buffer to .pop() from, so no person has more than 1 death record
 const deadPersons = persons.filter(person => person.mother_id && person.father_id);
 
+console.log('Death entities', new Date());
 // for (let i = Math.min(deathsCount, deadPersons.length); i > 0; i--) {
 for (let i = deadPersons.length; i > 0; i--) {
   const deathVillageIndices = randomIndexFrom(villagesCount);
@@ -696,6 +727,7 @@ for (let i = deadPersons.length; i > 0; i--) {
 
 let marriageDocuments = [];
 
+console.log('Marriages map', new Date());
 marriages.map(marriageRecord => {
   /********* Death Record attributes *********/
   let marriageDoc = {...marriageRecord};
@@ -715,7 +747,13 @@ marriages.map(marriageRecord => {
     .filter(officiantName => officiantName.officiant_id === marriageRecord.officiant_id)
     .map(officiantName => officiantName.name_id);
 
-  marriageDoc.officiant.name = allNames.find(name => name._id_name === officiantNameRefs[0]).name;
+  if (officiantNameRefs.length > 0) {
+    marriageDoc.officiant.name = [];
+    officiantNameRefs.map(ref => {
+      const officiantName = allNames.find(name => name._id_name === ref);
+      marriageDoc.officiant.name = [...marriageDoc.officiant.name, officiantName.name];
+    });
+  }
 
   /********* Witnesses *********/
   const marriageWitnesses = witnesses
@@ -730,13 +768,12 @@ marriages.map(marriageRecord => {
         .filter(personName => personName.person_id === witness.person_id)
         .map(personName => personName.name_id);
 
-      // Witness names entities
-      const witnessNameEntity = allNames.find(name => name._id_name === witnessNameRefs[0]);
-      witness.name = witnessNameEntity ? witnessNameEntity.name : '';
-
-      // For now only counting with max 2 names FIXME?
-      if (witnessNameRefs.length === 2) {
-        witness.middle_name = allNames.find(name => name._id_name === witnessNameRefs[1]).name;
+      if (witnessNameRefs.length > 0) {
+        witness.name = [];
+        witnessNameRefs.map(ref => {
+          const witnessName = allNames.find(name => name._id_name === ref);
+          witness.name = [...witness.name, witnessName.name];
+        });
       }
 
       // Witness occupations entities
@@ -765,210 +802,199 @@ marriages.map(marriageRecord => {
 
       marriageDoc.witnesses = [...marriageDoc.witnesses, witness];
     });
+  }
 
-    /********* Groom & connected entities (parents) *********/
-    marriageDoc.groom = {...persons.find(person => person._id_person === marriageRecord.groom_id)};
+  /********* Groom & connected entities (parents) *********/
+  marriageDoc.groom = {...persons.find(person => person._id_person === marriageRecord.groom_id)};
 
-    const groomNameRefs = personNames
-      .filter(personName => personName.person_id === marriageRecord.groom_id)
-      .map(personName => personName.name_id);
+  const groomNameRefs = personNames
+    .filter(personName => personName.person_id === marriageRecord.groom_id)
+    .map(personName => personName.name_id);
 
-    // Person names entities
-    const groomNameEntity = allNames.find(name => name._id_name === groomNameRefs[0]);
-    marriageDoc.groom.name = groomNameEntity ? groomNameEntity.name : '';
 
-    // For now only counting with max 2 names FIXME?
-    if (groomNameRefs.length === 2) {
-      marriageDoc.groom.middle_name = allNames.find(name => name._id_name === groomNameRefs[1]).name;
-    }
+  if (groomNameRefs.length > 0) {
+    marriageDoc.groom.name = [];
+    groomNameRefs.map(ref => {
+      const groomName = allNames.find(name => name._id_name === ref);
+      marriageDoc.groom.name = [...marriageDoc.groom.name, groomName.name];
+    });
+  }
 
-    // Person occupations entities
-    const groomOccupRefs = personOccupations
-      .filter(personOccup => personOccup.person_id === marriageRecord.groom_id)
-      .map(personOccup => personOccup.occup_id);
+  // Person occupations entities
+  const groomOccupRefs = personOccupations
+    .filter(personOccup => personOccup.person_id === marriageRecord.groom_id)
+    .map(personOccup => personOccup.occup_id);
 
-    if (groomOccupRefs.length > 0) {
-      marriageDoc.groom.occupations = [];
+  if (groomOccupRefs.length > 0) {
+    marriageDoc.groom.occupations = [];
 
-      groomOccupRefs.map(ref => {
-        const occupation = occupations.find(occup => occup._id_occup === ref);
-        marriageDoc.groom.occupations = [...marriageDoc.groom.occupations, occupation.name];
-      });
-    }
+    groomOccupRefs.map(ref => {
+      const occupation = occupations.find(occup => occup._id_occup === ref);
+      marriageDoc.groom.occupations = [...marriageDoc.groom.occupations, occupation.name];
+    });
+  }
 
-    /********* Groom's Father *********/
-    if (marriageDoc.groom && marriageDoc.groom.father_id) {
-      marriageDoc.groom.father = {...persons.find(person => person._id_person === marriageDoc.groom.father_id)};
+  /********* Groom's Father *********/
+  if (marriageDoc.groom && marriageDoc.groom.father_id) {
+    marriageDoc.groom.father = {...persons.find(person => person._id_person === marriageDoc.groom.father_id)};
 
-      if (marriageDoc.groom.father) {
-        const fatherNameRefs = personNames
-          .filter(personName => personName.person_id === marriageDoc.groom.father._id_person)
-          .map(personName => personName.name_id);
+    if (marriageDoc.groom.father) {
+      const groomFatherNameRefs = personNames
+        .filter(personName => personName.person_id === marriageDoc.groom.father._id_person)
+        .map(personName => personName.name_id);
 
-        // Father names entities
-        const fatherNameEntity = allNames.find(name => name._id_name === fatherNameRefs[0]);
-        marriageDoc.groom.father.name = fatherNameEntity ? fatherNameEntity.name : '';
-        // marriageDoc.groom.father.name = allNames.find(name => name._id_name === fatherNameRefs[0]).name;
-
-        // For now only counting with max 2 names FIXME?
-        if (fatherNameRefs.length === 2) {
-          marriageDoc.groom.father.middle_name = allNames.find(name => name._id_name === fatherNameRefs[1]).name;
-        }
-
-        // Father occupations entities
-        const fatherOccupRefs = personOccupations
-          .filter(personOccup => personOccup.person_id === marriageDoc.groom.father._id_person)
-          .map(personOccup => personOccup.occup_id);
-
-        if (fatherOccupRefs.length > 0) {
-          marriageDoc.groom.father.occupations = [];
-
-          fatherOccupRefs.map(ref => {
-            const occupation = occupations.find(occup => occup._id_occup === ref);
-            marriageDoc.groom.father.occupations = [...marriageDoc.groom.father.occupations, occupation.name];
-          });
-        }
+      if (groomFatherNameRefs.length > 0) {
+        marriageDoc.groom.father.name = [];
+        groomFatherNameRefs.map(ref => {
+          const groomFatherName = allNames.find(name => name._id_name === ref);
+          marriageDoc.groom.father.name = [...marriageDoc.groom.father.name, groomFatherName.name];
+        });
       }
-    }
 
-    /********* Groom's Mother *********/
-    if (marriageDoc.groom && marriageDoc.groom.mother_id) {
-      marriageDoc.groom.mother = {...persons.find(person => person._id_person === marriageDoc.groom.mother_id)};
+      // Father occupations entities
+      const fatherOccupRefs = personOccupations
+        .filter(personOccup => personOccup.person_id === marriageDoc.groom.father._id_person)
+        .map(personOccup => personOccup.occup_id);
 
-      if (marriageDoc.groom.mother) {
-        const motherNameRefs = personNames
-          .filter(personName => personName.person_id === marriageDoc.groom.mother._id_person)
-          .map(personName => personName.name_id);
+      if (fatherOccupRefs.length > 0) {
+        marriageDoc.groom.father.occupations = [];
 
-        // Father names entities
-        const motherNameEntity = allNames.find(name => name._id_name === motherNameRefs[0]);
-        marriageDoc.groom.mother.name = motherNameEntity ? motherNameEntity.name : '';
-        // marriageDoc.groom.mother.name = allNames.find(name => name._id_name === motherNameRefs[0]).name;
-
-        // For now only counting with max 2 names FIXME?
-        if (motherNameRefs.length === 2) {
-          marriageDoc.groom.mother.middle_name = allNames.find(name => name._id_name === motherNameRefs[1]).name;
-        }
-
-        // Father occupations entities
-        const motherOccupRefs = personOccupations
-          .filter(personOccup => personOccup.person_id === marriageDoc.groom.mother._id_person)
-          .map(personOccup => personOccup.occup_id);
-
-        if (motherOccupRefs.length > 0) {
-          marriageDoc.groom.mother.occupations = [];
-
-          motherOccupRefs.map(ref => {
-            const occupation = occupations.find(occup => occup._id_occup === ref);
-            marriageDoc.groom.mother.occupations = [...marriageDoc.groom.mother.occupations, occupation.name];
-          });
-        }
-      }
-    }
-
-    /********* Bride & connected entities (parents) *********/
-    // TODO add widow after entity :(
-
-    marriageDoc.bride = {...persons.find(person => person._id_person === marriageRecord.bride_id)};
-
-    const brideNameRefs = personNames
-      .filter(personName => personName.person_id === marriageRecord.bride_id)
-      .map(personName => personName.name_id);
-
-    // Person names entities
-    const brideNameEntity = allNames.find(name => name._id_name === brideNameRefs[0]);
-    marriageDoc.bride.name = brideNameEntity ? brideNameEntity.name : '';
-
-    // For now only counting with max 2 names FIXME?
-    if (brideNameRefs.length === 2) {
-      marriageDoc.bride.middle_name = allNames.find(name => name._id_name === brideNameRefs[1]).name;
-    }
-
-    // Person occupations entities
-    const brideOccupRefs = personOccupations
-      .filter(personOccup => personOccup.person_id === marriageRecord.bride_id)
-      .map(personOccup => personOccup.occup_id);
-
-    if (brideOccupRefs.length > 0) {
-      marriageDoc.bride.occupations = [];
-
-      brideOccupRefs.map(ref => {
-        const occupation = occupations.find(occup => occup._id_occup === ref);
-        marriageDoc.bride.occupations = [...marriageDoc.bride.occupations, occupation.name];
-      });
-    }
-
-    /********* Bride's Father *********/
-    if (marriageDoc.bride && marriageDoc.bride.father_id) {
-      marriageDoc.bride.father = {...persons.find(person => person._id_person === marriageDoc.bride.father_id)};
-
-      if (marriageDoc.bride.father) {
-        const fatherNameRefs = personNames
-          .filter(personName => personName.person_id === marriageDoc.bride.father._id_person)
-          .map(personName => personName.name_id);
-
-        // Father names entities
-        const fatherNameEntity = allNames.find(name => name._id_name === fatherNameRefs[0]);
-        marriageDoc.bride.father.name = fatherNameEntity ? fatherNameEntity.name : '';
-        // marriageDoc.bride.father.name = allNames.find(name => name._id_name === fatherNameRefs[0]).name;
-
-        // For now only counting with max 2 names FIXME?
-        if (fatherNameRefs.length === 2) {
-          marriageDoc.bride.father.middle_name = allNames.find(name => name._id_name === fatherNameRefs[1]).name;
-        }
-
-        // Father occupations entities
-        const fatherOccupRefs = personOccupations
-          .filter(personOccup => personOccup.person_id === marriageDoc.bride.father._id_person)
-          .map(personOccup => personOccup.occup_id);
-
-        if (fatherOccupRefs.length > 0) {
-          marriageDoc.bride.father.occupations = [];
-
-          fatherOccupRefs.map(ref => {
-            const occupation = occupations.find(occup => occup._id_occup === ref);
-            marriageDoc.bride.father.occupations = [...marriageDoc.bride.father.occupations, occupation.name];
-          });
-        }
-      }
-    }
-
-    /********* Bride's Mother *********/
-    if (marriageDoc.mother && marriageDoc.mother.mother_id) {
-      marriageDoc.bride.mother = {...persons.find(person => person._id_person === marriageDoc.mother.mother_id)};
-
-      if (marriageDoc.bride.mother) {
-        const motherNameRefs = personNames
-          .filter(personName => personName.person_id === marriageDoc.bride.mother._id_person)
-          .map(personName => personName.name_id);
-
-        // Father names entities
-        const motherNameEntity = allNames.find(name => name._id_name === motherNameRefs[0]);
-        marriageDoc.bride.mother.name = motherNameEntity ? motherNameEntity.name : '';
-        // marriageDoc.mother.mother.name = allNames.find(name => name._id_name === motherNameRefs[0]).name;
-
-        // For now only counting with max 2 names FIXME?
-        if (motherNameRefs.length === 2) {
-          marriageDoc.bride.mother.middle_name = allNames.find(name => name._id_name === motherNameRefs[1]).name;
-        }
-
-        // Father occupations entities
-        const motherOccupRefs = personOccupations
-          .filter(personOccup => personOccup.person_id === marriageDoc.bride.mother._id_person)
-          .map(personOccup => personOccup.occup_id);
-
-        if (motherOccupRefs.length > 0) {
-          marriageDoc.bride.mother.occupations = [];
-
-          motherOccupRefs.map(ref => {
-            const occupation = occupations.find(occup => occup._id_occup === ref);
-            marriageDoc.bride.mother.occupations = [...marriageDoc.bride.mother.occupations, occupation.name];
-          });
-        }
+        fatherOccupRefs.map(ref => {
+          const occupation = occupations.find(occup => occup._id_occup === ref);
+          marriageDoc.groom.father.occupations = [...marriageDoc.groom.father.occupations, occupation.name];
+        });
       }
     }
   }
 
+  /********* Groom's Mother *********/
+  if (marriageDoc.groom && marriageDoc.groom.mother_id) {
+    marriageDoc.groom.mother = {...persons.find(person => person._id_person === marriageDoc.groom.mother_id)};
+
+    if (marriageDoc.groom.mother) {
+      const groomMotherNameRefs = personNames
+        .filter(personName => personName.person_id === marriageDoc.groom.mother._id_person)
+        .map(personName => personName.name_id);
+
+      if (groomMotherNameRefs.length > 0) {
+        marriageDoc.groom.mother.name = [];
+        groomMotherNameRefs.map(ref => {
+          const groomMotherName = allNames.find(name => name._id_name === ref);
+          marriageDoc.groom.mother.name = [...marriageDoc.groom.mother.name, groomMotherName.name];
+        });
+      }
+
+      // Father occupations entities
+      const motherOccupRefs = personOccupations
+        .filter(personOccup => personOccup.person_id === marriageDoc.groom.mother._id_person)
+        .map(personOccup => personOccup.occup_id);
+
+      if (motherOccupRefs.length > 0) {
+        marriageDoc.groom.mother.occupations = [];
+
+        motherOccupRefs.map(ref => {
+          const occupation = occupations.find(occup => occup._id_occup === ref);
+          marriageDoc.groom.mother.occupations = [...marriageDoc.groom.mother.occupations, occupation.name];
+        });
+      }
+    }
+  }
+
+  /********* Bride & connected entities (parents) *********/
+
+  marriageDoc.bride = {...persons.find(person => person._id_person === marriageRecord.bride_id)};
+
+  const brideNameRefs = personNames
+    .filter(personName => personName.person_id === marriageRecord.bride_id)
+    .map(personName => personName.name_id);
+
+  if (brideNameRefs.length > 0) {
+    marriageDoc.bride.name = [];
+    brideNameRefs.map(ref => {
+      const brideName = allNames.find(name => name._id_name === ref);
+      marriageDoc.bride.name = [...marriageDoc.bride.name, brideName.name];
+    });
+  }
+
+  // Person occupations entities
+  const brideOccupRefs = personOccupations
+    .filter(personOccup => personOccup.person_id === marriageRecord.bride_id)
+    .map(personOccup => personOccup.occup_id);
+
+  if (brideOccupRefs.length > 0) {
+    marriageDoc.bride.occupations = [];
+
+    brideOccupRefs.map(ref => {
+      const occupation = occupations.find(occup => occup._id_occup === ref);
+      marriageDoc.bride.occupations = [...marriageDoc.bride.occupations, occupation.name];
+    });
+  }
+
+  /********* Bride's Father *********/
+  if (marriageDoc.bride && marriageDoc.bride.father_id) {
+    marriageDoc.bride.father = {...persons.find(person => person._id_person === marriageDoc.bride.father_id)};
+
+    if (marriageDoc.bride.father) {
+      const brideFatherNameRefs = personNames
+        .filter(personName => personName.person_id === marriageDoc.bride.father._id_person)
+        .map(personName => personName.name_id);
+
+      if (brideFatherNameRefs.length > 0) {
+        marriageDoc.bride.father.name = [];
+        brideFatherNameRefs.map(ref => {
+          const brideFatherName = allNames.find(name => name._id_name === ref);
+          marriageDoc.bride.father.name = [...marriageDoc.bride.father.name, brideFatherName.name];
+        });
+      }
+
+      // Father occupations entities
+      const fatherOccupRefs = personOccupations
+        .filter(personOccup => personOccup.person_id === marriageDoc.bride.father._id_person)
+        .map(personOccup => personOccup.occup_id);
+
+      if (fatherOccupRefs.length > 0) {
+        marriageDoc.bride.father.occupations = [];
+
+        fatherOccupRefs.map(ref => {
+          const occupation = occupations.find(occup => occup._id_occup === ref);
+          marriageDoc.bride.father.occupations = [...marriageDoc.bride.father.occupations, occupation.name];
+        });
+      }
+    }
+  }
+
+  /********* Bride's Mother *********/
+  if (marriageDoc.mother && marriageDoc.mother.mother_id) {
+    marriageDoc.bride.mother = {...persons.find(person => person._id_person === marriageDoc.mother.mother_id)};
+
+    if (marriageDoc.bride.mother) {
+      const brideMotherNameRefs = personNames
+        .filter(personName => personName.person_id === marriageDoc.bride.mother._id_person)
+        .map(personName => personName.name_id);
+
+      if (brideMotherNameRefs.length > 0) {
+        marriageDoc.bride.mother.name = [];
+        brideMotherNameRefs.map(ref => {
+          const brideMotherName = allNames.find(name => name._id_name === ref);
+          marriageDoc.bride.mother.name = [...marriageDoc.bride.mother.name, brideMotherName.name];
+        });
+      }
+
+      // Mother occupations entities
+      const motherOccupRefs = personOccupations
+        .filter(personOccup => personOccup.person_id === marriageDoc.bride.mother._id_person)
+        .map(personOccup => personOccup.occup_id);
+
+      if (motherOccupRefs.length > 0) {
+        marriageDoc.bride.mother.occupations = [];
+
+        motherOccupRefs.map(ref => {
+          const occupation = occupations.find(occup => occup._id_occup === ref);
+          marriageDoc.bride.mother.occupations = [...marriageDoc.bride.mother.occupations, occupation.name];
+        });
+      }
+    }
+  }
 
   // Remove redundant ids used for Relational db foreign keys
   // and _id_marriage because it will be replaced by _id index (ObjectId) in MongoDB
@@ -993,6 +1019,7 @@ marriages.map(marriageRecord => {
 
 let deathDocuments = [];
 
+console.log('Deaths map', new Date());
 deaths.map(deathRecord => {
   /********* Death Record attributes *********/
   let deathDoc = {...deathRecord};
@@ -1008,35 +1035,47 @@ deaths.map(deathRecord => {
   /********* Director *********/
   deathDoc.director = {...directors.find(dir => dir._id_director === deathRecord.director_id)};
 
-  const dirNameRefs = directorNames
+  const directorNameRefs = directorNames
     .filter(dirName => dirName.director_id === deathRecord.director_id)
     .map(dirName => dirName.name_id);
 
-  deathDoc.director.name = allNames.find(name => name._id_name === dirNameRefs[0]).name;
+  if (directorNameRefs.length > 0) {
+    deathDoc.director.name = [];
+    directorNameRefs.map(ref => {
+      const directorName = allNames.find(name => name._id_name === ref);
+      deathDoc.director.name = [...deathDoc.director.name, directorName.name];
+    });
+  }
 
   /********* Celebrant *********/
   deathDoc.celebrant = {...celebrants.find(cel => cel._id_celebrant === deathRecord.celebrant_id)};
 
-  const celNameRefs = celebrantNames
+  const celebrantNameRefs = celebrantNames
     .filter(celName => celName.celebrant_id === deathRecord.celebrant_id)
     .map(celName => celName.name_id);
 
-  deathDoc.celebrant.name = allNames.find(name => name._id_name === celNameRefs[0]).name;
+  if (celebrantNameRefs.length > 0) {
+    deathDoc.celebrant.name = [];
+    celebrantNameRefs.map(ref => {
+      const celebrantName = allNames.find(name => name._id_name === ref);
+      deathDoc.celebrant.name = [...deathDoc.celebrant.name, celebrantName.name];
+    });
+  }
 
   /********* Dead person & connected entities (parents, bride/groom, kids) *********/
   deathDoc.person = {...persons.find(person => person._id_person === deathRecord.person_id)};
 
+  // Person names entities
   const personNameRefs = personNames
     .filter(personName => personName.person_id === deathRecord.person_id)
     .map(personName => personName.name_id);
 
-  // Person names entities
-  const personNameEntity = allNames.find(name => name._id_name === personNameRefs[0]);
-  deathDoc.person.name = personNameEntity ? personNameEntity.name : '';
-
-  // For now only counting with max 2 names FIXME?
-  if (personNameRefs.length === 2) {
-    deathDoc.person.middle_name = allNames.find(name => name._id_name === personNameRefs[1]).name;
+  if (personNameRefs.length > 0) {
+    deathDoc.person.name = [];
+    personNameRefs.map(ref => {
+      const personName = allNames.find(name => name._id_name === ref);
+      deathDoc.person.name = [...deathDoc.person.name, personName.name];
+    });
   }
 
   // Person occupations entities
@@ -1062,13 +1101,12 @@ deaths.map(deathRecord => {
       .map(personName => personName.name_id);
 
     // Father names entities
-    const fatherNameEntity = allNames.find(name => name._id_name === fatherNameRefs[0]);
-    deathDoc.father.name = fatherNameEntity ? fatherNameEntity.name : '';
-    // deathDoc.father.name = allNames.find(name => name._id_name === fatherNameRefs[0]).name;
-
-    // For now only counting with max 2 names FIXME?
-    if (fatherNameRefs.length === 2) {
-      deathDoc.father.middle_name = allNames.find(name => name._id_name === fatherNameRefs[1]).name;
+    if (fatherNameRefs.length > 0) {
+      deathDoc.father.name = [];
+      fatherNameRefs.map(ref => {
+        const fatherName = allNames.find(name => name._id_name === ref);
+        deathDoc.father.name = [...deathDoc.father.name, fatherName.name];
+      });
     }
 
     // Father occupations entities
@@ -1094,11 +1132,13 @@ deaths.map(deathRecord => {
       .filter(personName => personName.person_id === deathDoc.mother._id_person)
       .map(personName => personName.name_id);
 
-    // Mother name entity
-    // women have only 1 name for simplicity
-    const motherNameEntity = allNames.find(name => name._id_name === motherNameRefs[0]);
-    deathDoc.mother.name = motherNameEntity ? motherNameEntity.name : '';
-    // deathDoc.mother.name = allNames.find(name => name._id_name === motherNameRefs[0]).name;
+    if (motherNameRefs.length > 0) {
+      deathDoc.mother.name = [];
+      motherNameRefs.map(ref => {
+        const motherName = allNames.find(name => name._id_name === ref);
+        deathDoc.mother.name = [...deathDoc.mother.name, motherName.name];
+      });
+    }
 
     // Mother occupations entities
     const motherOccupRefs = personOccupations
@@ -1131,14 +1171,12 @@ deaths.map(deathRecord => {
         .filter(personName => personName.person_id === brideGroomId)
         .map(personName => personName.name_id);
 
-      // Bride/groom names entities
-      const bgNameEntity = allNames.find(name => name._id_name === brideGroomNameRefs[0]);
-      deathDoc.bride_groom.name = bgNameEntity ? bgNameEntity.name : '';
-      // deathDoc.bride_groom.name = allNames.find(name => name._id_name === brideGroomNameRefs[0]).name;
-
-      // For now only counting with max 2 names FIXME?
-      if (brideGroomNameRefs.length === 2) {
-        deathDoc.bride_groom.middle_name = allNames.find(name => name._id_name === brideGroomNameRefs[1]).name;
+      if (brideGroomNameRefs.length > 0) {
+        deathDoc.bride_groom.name = [];
+        brideGroomNameRefs.map(ref => {
+          const brideGroomName = allNames.find(name => name._id_name === ref);
+          deathDoc.bride_groom.name = [...deathDoc.bride_groom.name, brideGroomName.name];
+        });
       }
 
       // Bride/groom occupations entities
@@ -1171,14 +1209,12 @@ deaths.map(deathRecord => {
           .filter(personName => personName.person_id === kid._id_person)
           .map(personName => personName.name_id);
 
-        // Kid names entities
-        const kidNameEntity = allNames.find(name => name._id_name === kidNameRefs[0]);
-        kid.name = kidNameEntity ? kidNameEntity.name : '';
-        // deathDoc.bride_groom.name = allNames.find(name => name._id_name === brideGroomNameRefs[0]).name;
-
-        // For now only counting with max 2 names FIXME?
-        if (kidNameRefs.length === 2) {
-          kid.middle_name = allNames.find(name => name._id_name === kidNameRefs[1]).name;
+        if (kidNameRefs.length > 0) {
+          kid.name = [];
+          kidNameRefs.map(ref => {
+            const kidName = allNames.find(name => name._id_name === ref);
+            kid.name = [...kid.name, kidName.name];
+          });
         }
 
         // Kid occupations entities
@@ -1259,7 +1295,6 @@ const marriageDocIndexes = [
   // {name: "witnesses.side", key: {"witnesses.side": 1}},
   {name: "witnesses.relationship", key: {"witnesses.relationship": 1}},
   // {name: "witnesses.name", key: {"witnesses.name": 1}},
-  // {name: "witnesses.middle_name", key: {"witnesses.middle_name": 1}},
   // {name: "witnesses.surname", key: {"witnesses.surname": 1}},
   {name: "witnesses.village", key: {"witnesses.village": 1}},
   // {name: "witnesses.occupations", key: {"witnesses.occupations": 1}},
@@ -1268,7 +1303,6 @@ const marriageDocIndexes = [
   {name: "witnesses.religion", key: {"witnesses.religion": 1}},
   {name: "groom._id_person", key: {"groom._id_person": 1}},
   {name: "groom.name", key: {"groom.name": 1}},
-  // {name: "groom.middle_name", key: {"groom.middle_name": 1}},
   {name: "groom.surname", key: {"groom.surname": 1}},
   {name: "groom.village", key: {"groom.village": 1}},
   // {name: "groom.street", key: {"groom.street": 1}},
@@ -1278,7 +1312,6 @@ const marriageDocIndexes = [
   {name: "groom.religion", key: {"groom.religion": 1}},
   {name: "groom.father._id_person", key: {"groom.father._id_person": 1}},
   // {name: "groom.father.name", key: {"groom.father.name": 1}},
-  // {name: "groom.father.middle_name", key: {"groom.father.middle_name": 1}},
   // {name: "groom.father.surname", key: {"groom.father.surname": 1}},
   // {name: "groom.father.village", key: {"groom.father.village": 1}},
   // {name: "groom.father.occupations", key: {"groom.father.occupations": 1}},
@@ -1286,7 +1319,6 @@ const marriageDocIndexes = [
   // {name: "groom.father.religion", key: {"groom.father.religion": 1}},
   {name: "groom.mother._id_person", key: {"groom.mother._id_person": 1}},
   // {name: "groom.mother.name", key: {"groom.mother.name": 1}},
-  // {name: "groom.mother.middle_name", key: {"groom.mother.middle_name": 1}},
   // {name: "groom.mother.surname", key: {"groom.mother.surname": 1}},
   // {name: "groom.mother.village", key: {"groom.mother.village": 1}},
   // {name: "groom.mother.occupations", key: {"groom.mother.occupations": 1}},
@@ -1303,14 +1335,12 @@ const marriageDocIndexes = [
   {name: "bride.religion", key: {"bride.religion": 1}},
   {name: "bride.father._id_person", key: {"bride.father._id_person": 1}},
   // {name: "bride.father.name", key: {"bride.father.name": 1}},
-  // {name: "bride.father.middle_name", key: {"bride.father.middle_name": 1}},
   // {name: "bride.father.surname", key: {"bride.father.surname": 1}},
   // {name: "bride.father.village", key: {"bride.father.village": 1}},
   // {name: "bride.father.occupations", key: {"bride.father.occupations": 1}},
   // {name: "bride.father.birth", key: {"bride.father.birth": 1}},
   {name: "bride.mother._id_person", key: {"bride.mother._id_person": 1}},
   // {name: "bride.mother.name", key: {"bride.mother.name": 1}},
-  // {name: "bride.mother.middle_name", key: {"bride.mother.middle_name": 1}},
   // {name: "bride.mother.surname", key: {"bride.mother.surname": 1}},
   // {name: "bride.mother.village", key: {"bride.mother.village": 1}},
   // {name: "bride.mother.occupations", key: {"bride.mother.occupations": 1}},
@@ -1358,7 +1388,6 @@ const deathDocIndexes = [
   // {name: "celebrant.title_occup", key: {"celebrant.title_occup": 1}},
   {name: "person._id_person", key: {"person._id_person": 1}},
   {name: "person.name", key: {"person.name": 1}},
-  // {name: "person.middle_name", key: {"person.middle_name": 1}},
   {name: "person.surname", key: {"person.surname": 1}},
   {name: "person.village", key: {"person.village": 1}},
   // {name: "person.street", key: {"person.street": 1}},
@@ -1369,7 +1398,6 @@ const deathDocIndexes = [
   {name: "person.occupations", key: {"person.occupations": 1}},
   {name: "father._id_person", key: {"father._id_person": 1}},
   // {name: "father.name", key: {"father.name": 1}},
-  // {name: "father.middle_name", key: {"father.middle_name": 1}},
   // {name: "father.surname", key: {"father.surname": 1}},
   // {name: "father.birth", key: {"father.birth": 1}},
   {name: "father.village", key: {"father.village": 1}},
@@ -1470,10 +1498,13 @@ MongoClient.connect(mongodbServerUrl, { useNewUrlParser: true }, function(err, c
   db.dropCollection('deaths'); // drop deaths collection if already exists
 
   insertDeathDocuments(db, function() {
-    indexDeathsCollection(db, function() {
+    if (createIndexes === true || createIndexes === 'true') {
+      indexDeathsCollection(db, function() {
+        client.close();
+      });
+    } else {
       client.close();
-    });
-    // client.close();
+    }
   });
 });
 
@@ -1487,10 +1518,13 @@ MongoClient.connect(mongodbServerUrl, { useNewUrlParser: true }, function(err, c
   db.dropCollection('marriages'); // drop marriages collection if already exists
 
   insertMarriageDocuments(db, function() {
-    indexMarriagesCollection(db, function() {
+    if (createIndexes === true || createIndexes === 'true') {
+      indexMarriagesCollection(db, function() {
+        client.close();
+      });
+    } else {
       client.close();
-    });
-    // client.close();
+    }
   });
 });
 
@@ -1505,12 +1539,7 @@ fs.readFile(
     } else {
       const { Client } = require('pg');
 
-      const postgresClient = new Client({
-        user: 'postgres',
-        password: '1234',
-        database: 'postgres',
-        port: 5432,
-      });
+      const postgresClient = new Client(POSTGRES_CREDENTIALS);
 
       postgresClient.connect((err) => {
         if (err) {
